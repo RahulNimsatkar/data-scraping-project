@@ -146,6 +146,70 @@ Return only the code without markdown formatting.`;
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error("Code generation error:", error);
+    
+    // Fallback code when OpenAI is not available
+    if (errorMessage.includes('quota') || errorMessage.includes('429')) {
+      console.log('OpenAI quota exceeded, using fallback code generation');
+      
+      const fallbackCode = language === 'python' ? 
+        `import scrapy
+from scrapy import Spider
+
+class WebsiteScraper(Spider):
+    name = 'website_scraper'
+    start_urls = ['${url}']
+    
+    def parse(self, response):
+        # Extract items using the recommended selectors
+        items = response.css('${selectors.primary || ".post, .listing, .item"}')
+        
+        for item in items:
+            yield {
+                'title': item.css('.title, .name, h1, h2, h3 ::text').get(),
+                'price': item.css('.price, .cost ::text').get(),
+                'description': item.css('.description, .summary ::text').get(),
+                'link': item.css('a ::attr(href)').get(),
+                'url': response.url,
+            }
+        
+        # Handle pagination
+        next_page = response.css('.next, .pagination .next ::attr(href)').get()
+        if next_page:
+            yield response.follow(next_page, self.parse)` 
+        : 
+        `const puppeteer = require('puppeteer');
+
+async function scrapeWebsite() {
+    const browser = await puppeteer.launch({ headless: true });
+    const page = await browser.newPage();
+    
+    try {
+        await page.goto('${url}');
+        
+        const data = await page.evaluate(() => {
+            const items = document.querySelectorAll('${selectors.primary || ".post, .listing, .item"}');
+            return Array.from(items).map(item => ({
+                title: item.querySelector('.title, .name, h1, h2, h3')?.textContent?.trim(),
+                price: item.querySelector('.price, .cost')?.textContent?.trim(),
+                description: item.querySelector('.description, .summary')?.textContent?.trim(),
+                link: item.querySelector('a')?.href,
+                url: window.location.href
+            }));
+        });
+        
+        console.log('Scraped data:', data);
+        return data;
+        
+    } finally {
+        await browser.close();
+    }
+}
+
+scrapeWebsite().catch(console.error);`;
+      
+      return fallbackCode;
+    }
+    
     throw new Error(`Failed to generate scraping code: ${errorMessage}`);
   }
 }
