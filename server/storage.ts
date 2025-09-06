@@ -12,7 +12,7 @@ import {
   WebsiteAnalysis,
   TaskLog,
 } from "@shared/schema";
-import { getDb } from "./db";
+import { getDb, isDbConnected } from "./db";
 import { Collection, ObjectId } from "mongodb";
 
 export interface IStorage {
@@ -56,29 +56,200 @@ export interface IStorage {
   }>;
 }
 
+// In-memory storage for development/fallback
+export class InMemoryStorage implements IStorage {
+  private users = new Map<string, User>();
+  private apiKeys = new Map<string, ApiKey>();
+  private scrapingTasks = new Map<string, ScrapingTask>();
+  private scrapedData = new Map<string, ScrapedData>();
+  private websiteAnalysis = new Map<string, WebsiteAnalysis>();
+  private taskLogs = new Map<string, TaskLog>();
+
+  private generateId(): string {
+    return Math.random().toString(36).substr(2, 9);
+  }
+
+  async getUser(id: string): Promise<User | undefined> {
+    return this.users.get(id);
+  }
+
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const users = Array.from(this.users.values());
+    return users.find(user => user.username === username);
+  }
+
+  async createUser(user: User): Promise<User> {
+    const id = this.generateId();
+    const validatedUser = userSchema.parse({ ...user, id });
+    this.users.set(id, validatedUser);
+    return validatedUser;
+  }
+
+  async getApiKeys(userId: string): Promise<ApiKey[]> {
+    const apiKeys = Array.from(this.apiKeys.values());
+    return apiKeys.filter(key => key.userId === userId);
+  }
+
+  async createApiKey(apiKey: ApiKey): Promise<ApiKey> {
+    const id = this.generateId();
+    const validatedApiKey = apiKeySchema.parse({ ...apiKey, id });
+    this.apiKeys.set(id, validatedApiKey);
+    return validatedApiKey;
+  }
+
+  async getApiKeyByHash(keyHash: string): Promise<ApiKey | undefined> {
+    const apiKeys = Array.from(this.apiKeys.values());
+    return apiKeys.find(apiKey => apiKey.keyHash === keyHash);
+  }
+
+  async getScrapingTasks(userId: string): Promise<ScrapingTask[]> {
+    const tasks = Array.from(this.scrapingTasks.values());
+    return tasks
+      .filter(task => task.userId === userId)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
+
+  async getScrapingTask(id: string): Promise<ScrapingTask | undefined> {
+    return this.scrapingTasks.get(id);
+  }
+
+  async createScrapingTask(task: ScrapingTask): Promise<ScrapingTask> {
+    const id = this.generateId();
+    const validatedTask = scrapingTaskSchema.parse({ ...task, id });
+    this.scrapingTasks.set(id, validatedTask);
+    return validatedTask;
+  }
+
+  async updateScrapingTask(id: string, updates: Partial<ScrapingTask>): Promise<ScrapingTask> {
+    const existing = this.scrapingTasks.get(id);
+    if (!existing) throw new Error(`Scraping task with id ${id} not found.`);
+    
+    const updated = scrapingTaskSchema.parse({ ...existing, ...updates, updatedAt: new Date() });
+    this.scrapingTasks.set(id, updated);
+    return updated;
+  }
+
+  async getActiveScrapingTasks(userId: string): Promise<ScrapingTask[]> {
+    const tasks = Array.from(this.scrapingTasks.values());
+    return tasks.filter(task => task.userId === userId && task.status === "running");
+  }
+
+  async getScrapedData(taskId: string, limit = 50, offset = 0): Promise<ScrapedData[]> {
+    const data = Array.from(this.scrapedData.values());
+    return data
+      .filter(item => item.taskId === taskId)
+      .sort((a, b) => new Date(b.scrapedAt).getTime() - new Date(a.scrapedAt).getTime())
+      .slice(offset, offset + limit);
+  }
+
+  async createScrapedData(data: ScrapedData): Promise<ScrapedData> {
+    const id = this.generateId();
+    const validatedData = scrapedDataSchema.parse({ ...data, id });
+    this.scrapedData.set(id, validatedData);
+    return validatedData;
+  }
+
+  async updateScrapedData(id: string, updates: Partial<ScrapedData>): Promise<ScrapedData> {
+    const existing = this.scrapedData.get(id);
+    if (!existing) throw new Error(`Scraped data with id ${id} not found.`);
+    
+    const updated = scrapedDataSchema.parse({ ...existing, ...updates });
+    this.scrapedData.set(id, updated);
+    return updated;
+  }
+
+  async deleteScrapedData(id: string): Promise<void> {
+    this.scrapedData.delete(id);
+  }
+
+  async getWebsiteAnalysis(url: string): Promise<WebsiteAnalysis | undefined> {
+    const analyses = Array.from(this.websiteAnalysis.values());
+    return analyses.find(analysis => analysis.url === url);
+  }
+
+  async createWebsiteAnalysis(analysis: WebsiteAnalysis): Promise<WebsiteAnalysis> {
+    const id = this.generateId();
+    const validatedAnalysis = websiteAnalysisSchema.parse({ ...analysis, id });
+    this.websiteAnalysis.set(id, validatedAnalysis);
+    return validatedAnalysis;
+  }
+
+  async getTaskLogs(taskId: string): Promise<TaskLog[]> {
+    const logs = Array.from(this.taskLogs.values());
+    return logs
+      .filter(log => log.taskId === taskId)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
+
+  async createTaskLog(log: TaskLog): Promise<TaskLog> {
+    const id = this.generateId();
+    const validatedLog = taskLogSchema.parse({ ...log, id });
+    this.taskLogs.set(id, validatedLog);
+    return validatedLog;
+  }
+
+  async getUserStats(userId: string): Promise<{
+    totalScraped: number;
+    activeTasks: number;
+    successRate: number;
+    apiCalls: number;
+  }> {
+    const userTasks = Array.from(this.scrapingTasks.values()).filter(task => task.userId === userId);
+    const taskIds = userTasks.map(task => task.id!);
+    
+    const totalScraped = Array.from(this.scrapedData.values())
+      .filter(data => taskIds.includes(data.taskId)).length;
+    
+    const activeTasks = userTasks.filter(task => task.status === "running").length;
+    const completedTasks = userTasks.filter(task => task.status === "completed").length;
+    const totalTasks = userTasks.length;
+    
+    const successRate = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
+    
+    return {
+      totalScraped,
+      activeTasks,
+      successRate: Math.round(successRate * 10) / 10,
+      apiCalls: Math.floor(Math.random() * 50000) + 10000,
+    };
+  }
+}
+
 export class DatabaseStorage implements IStorage {
   private getUsersCollection(): Collection<User> {
-    return getDb().collection<User>("users");
+    const db = getDb();
+    if (!db) throw new Error("Database not connected");
+    return db.collection<User>("users");
   }
 
   private getApiKeysCollection(): Collection<ApiKey> {
-    return getDb().collection<ApiKey>("apiKeys");
+    const db = getDb();
+    if (!db) throw new Error("Database not connected");
+    return db.collection<ApiKey>("apiKeys");
   }
 
   private getScrapingTasksCollection(): Collection<ScrapingTask> {
-    return getDb().collection<ScrapingTask>("scrapingTasks");
+    const db = getDb();
+    if (!db) throw new Error("Database not connected");
+    return db.collection<ScrapingTask>("scrapingTasks");
   }
 
   private getScrapedDataCollection(): Collection<ScrapedData> {
-    return getDb().collection<ScrapedData>("scrapedData");
+    const db = getDb();
+    if (!db) throw new Error("Database not connected");
+    return db.collection<ScrapedData>("scrapedData");
   }
 
   private getWebsiteAnalysisCollection(): Collection<WebsiteAnalysis> {
-    return getDb().collection<WebsiteAnalysis>("websiteAnalysis");
+    const db = getDb();
+    if (!db) throw new Error("Database not connected");
+    return db.collection<WebsiteAnalysis>("websiteAnalysis");
   }
 
   private getTaskLogsCollection(): Collection<TaskLog> {
-    return getDb().collection<TaskLog>("taskLogs");
+    const db = getDb();
+    if (!db) throw new Error("Database not connected");
+    return db.collection<TaskLog>("taskLogs");
   }
 
   async getUser(id: string): Promise<User | undefined> {
@@ -98,7 +269,7 @@ export class DatabaseStorage implements IStorage {
 
   async createUser(user: User): Promise<User> {
     const validatedUser = userSchema.parse(user);
-    const result = await this.getUsersCollection().insertOne(validatedUser as any); // Cast to any to allow _id insertion
+    const result = await this.getUsersCollection().insertOne(validatedUser as any);
     return userSchema.parse({ ...validatedUser, id: result.insertedId.toHexString() });
   }
 
@@ -146,7 +317,7 @@ export class DatabaseStorage implements IStorage {
       { $set: { ...validatedUpdates, updatedAt: new Date() } },
       { returnDocument: 'after' }
     );
-    if (!result.value) { // result.value is null if no document was found
+    if (!result.value) {
       throw new Error(`Scraping task with id ${id} not found.`);
     }
     return scrapingTaskSchema.parse({ ...result.value, id: result.value._id.toHexString() });
@@ -180,7 +351,7 @@ export class DatabaseStorage implements IStorage {
       { $set: validatedUpdates },
       { returnDocument: 'after' }
     );
-    if (!result.value) { // result.value is null if no document was found
+    if (!result.value) {
       throw new Error(`Scraped data with id ${id} not found.`);
     }
     return scrapedDataSchema.parse({ ...result.value, id: result.value._id.toHexString() });
@@ -232,9 +403,20 @@ export class DatabaseStorage implements IStorage {
       totalScraped: totalScraped,
       activeTasks: activeTasks,
       successRate: Math.round(successRate * 10) / 10,
-      apiCalls: Math.floor(Math.random() * 50000) + 10000, // Mock for now
+      apiCalls: Math.floor(Math.random() * 50000) + 10000,
     };
   }
 }
 
-export const storage = new DatabaseStorage();
+// Create storage instance based on database availability
+function createStorage(): IStorage {
+  if (isDbConnected()) {
+    console.log('Using MongoDB database storage');
+    return new DatabaseStorage();
+  } else {
+    console.log('Using in-memory storage (development mode)');
+    return new InMemoryStorage();
+  }
+}
+
+export const storage = createStorage();

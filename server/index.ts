@@ -3,7 +3,7 @@ import express from "express";
 import { type Request, type Response, type NextFunction } from "express";
 import { registerRoutes } from "./routes.ts";
 import { setupVite, serveStatic, log } from "./vite.ts";
-import { connectToDatabase } from "./db.js"; // Import connectToDatabase
+import { connectToDatabase } from "./db.ts"; // Import connectToDatabase
 
 const app = express();
 app.use(express.json());
@@ -67,7 +67,7 @@ app.use((req, res, next) => {
   const port = parseInt(process.env.PORT || '5000', 10);
   server.listen({
     port,
-    host: "127.0.0.1",
+    host: "0.0.0.0",
   }, () => {
     log(`serving on port ${port}`);
   });

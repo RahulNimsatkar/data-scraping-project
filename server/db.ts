@@ -17,16 +17,19 @@ export async function connectToDatabase() {
     console.log("Connected to MongoDB!");
     return _db;
   } catch (e) {
-    console.error("Failed to connect to MongoDB", e);
-    throw e;
+    console.error("Failed to connect to MongoDB, falling back to in-memory storage", e);
+    console.log("Application will run with in-memory storage for development");
+    // Don't throw error, let app continue with in-memory storage
+    return null;
   }
 }
 
-export const getDb = (): Db => {
-  if (!_db) {
-    throw new Error("Database not connected. Call connectToDatabase first.");
-  }
-  return _db;
+export const getDb = (): Db | null => {
+  return _db || null;
+};
+
+export const isDbConnected = (): boolean => {
+  return !!_db;
 };
 
 export const mongoClient = client;
