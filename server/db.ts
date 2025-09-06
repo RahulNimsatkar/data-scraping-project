@@ -1,9 +1,4 @@
-import { Pool, neonConfig } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-serverless';
-import ws from "ws";
-import * as schema from "@shared/schema";
-
-neonConfig.webSocketConstructor = ws;
+import { MongoClient, Db } from 'mongodb'; // Import MongoClient and Db type
 
 if (!process.env.DATABASE_URL) {
   throw new Error(
@@ -11,5 +6,27 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
-export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-export const db = drizzle({ client: pool, schema });
+const uri = process.env.DATABASE_URL;
+const client = new MongoClient(uri);
+let _db: Db; // Declare a variable to hold the connected database instance
+
+export async function connectToDatabase() {
+  try {
+    await client.connect();
+    _db = client.db(); // Assign the connected database instance
+    console.log("Connected to MongoDB!");
+    return _db;
+  } catch (e) {
+    console.error("Failed to connect to MongoDB", e);
+    throw e;
+  }
+}
+
+export const getDb = (): Db => {
+  if (!_db) {
+    throw new Error("Database not connected. Call connectToDatabase first.");
+  }
+  return _db;
+};
+
+export const mongoClient = client;

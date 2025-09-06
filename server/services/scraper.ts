@@ -110,7 +110,8 @@ export class ScraperService {
             taskId,
             level: 'warning',
             message: `No items found on page ${currentPage} with any selector`,
-            metadata: { url: currentUrl, page: currentPage, contentLength: content.length }
+            metadata: { url: currentUrl, page: currentPage, contentLength: content.length },
+            createdAt: new Date()
           });
           break;
         }
@@ -126,7 +127,8 @@ export class ScraperService {
             await storage.createScrapedData({
               taskId,
               data,
-              url: currentUrl
+              url: currentUrl,
+              scrapedAt: new Date()
             });
             scrapedCount++;
 
@@ -178,7 +180,8 @@ export class ScraperService {
         taskId,
         level: 'error',
         message: errorMessage,
-        metadata: { error: errorStack }
+        metadata: { error: errorStack },
+        createdAt: new Date()
       });
 
       this.broadcastProgress({

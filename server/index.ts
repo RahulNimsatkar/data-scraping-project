@@ -1,6 +1,9 @@
-import express, { type Request, Response, NextFunction } from "express";
-import { registerRoutes } from "./routes";
-import { setupVite, serveStatic, log } from "./vite";
+import 'dotenv/config'; // Load environment variables
+import express from "express";
+import { type Request, type Response, type NextFunction } from "express";
+import { registerRoutes } from "./routes.ts";
+import { setupVite, serveStatic, log } from "./vite.ts";
+import { connectToDatabase } from "./db.js"; // Import connectToDatabase
 
 const app = express();
 app.use(express.json());
@@ -37,6 +40,7 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  await connectToDatabase(); // Connect to MongoDB before starting the server
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
@@ -63,8 +67,7 @@ app.use((req, res, next) => {
   const port = parseInt(process.env.PORT || '5000', 10);
   server.listen({
     port,
-    host: "0.0.0.0",
-    reusePort: true,
+    host: "127.0.0.1",
   }, () => {
     log(`serving on port ${port}`);
   });

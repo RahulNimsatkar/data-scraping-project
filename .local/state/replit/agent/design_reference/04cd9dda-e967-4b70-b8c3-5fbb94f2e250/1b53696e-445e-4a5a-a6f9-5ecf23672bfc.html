@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ScraperAI - AI-Powered Web Scraping Platform</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+    tailwind.config = {
+        theme: {
+            extend: {
+                borderRadius: {
+                    lg: "var(--radius)",
+                    md: "calc(var(--radius) - 2px)",
+                    sm: "calc(var(--radius) - 4px)",
+                },
+                colors: {
+                    background: "var(--background)",
+                    foreground: "var(--foreground)",
+                    card: {
+                        DEFAULT: "var(--card)",
+                        foreground: "var(--card-foreground)",
+                    },
+                    popover: {
+                        DEFAULT: "var(--popover)",
+                        foreground: "var(--popover-foreground)",
+                    },
+                    primary: {
+                        DEFAULT: "var(--primary)",
+                        foreground: "var(--primary-foreground)",
+                    },
+                    secondary: {
+                        DEFAULT: "var(--secondary)",
+                        foreground: "var(--secondary-foreground)",
+                    },
+                    muted: {
+                        DEFAULT: "var(--muted)",
+                        foreground: "var(--muted-foreground)",
+                    },
+                    accent: {
+                        DEFAULT: "var(--accent)",
+                        foreground: "var(--accent-foreground)",
+                    },
+                    destructive: {
+                        DEFAULT: "var(--destructive)",
+                        foreground: "var(--destructive-foreground)",
+                    },
+                    border: "var(--border)",
+                    input: "var(--input)",
+                    ring: "var(--ring)",
+                    chart: {
+                        "1": "var(--chart-1)",
+                        "2": "var(--chart-2)",
+                        "3": "var(--chart-3)",
+                        "4": "var(--chart-4)",
+                        "5": "var(--chart-5)",
+                    }
+                },
+                fontFamily: {
+                    sans: ["Inter", "system-ui", "sans-serif"],
+                }
+            },
+        }
+    };
+    </script>
+    <style>
+        :root {
+            --background: hsl(222 84% 5%);
+            --foreground: hsl(210 40% 98%);
+            --card: hsl(222 84% 5%);
+            --card-foreground: hsl(210 40% 98%);
+            --popover: hsl(222 84% 5%);
+            --popover-foreground: hsl(210 40% 98%);
+            --primary: hsl(217 91% 60%);
+            --primary-foreground: hsl(222 84% 5%);
+            --secondary: hsl(217 32% 17%);
+            --secondary-foreground: hsl(210 40% 98%);
+            --muted: hsl(217 32% 17%);
+            --muted-foreground: hsl(215 20% 65%);
+            --accent: hsl(217 32% 17%);
+            --accent-foreground: hsl(210 40% 98%);
+            --destructive: hsl(0 63% 31%);
+            --destructive-foreground: hsl(210 40% 98%);
+            --border: hsl(217 32% 17%);
+            --input: hsl(217 32% 17%);
+            --ring: hsl(224 71% 4%);
+            --radius: 0.5rem;
+            --chart-1: hsl(217 91% 60%);
+            --chart-2: hsl(173 58% 39%);
+            --chart-3: hsl(197 37% 24%);
+            --chart-4: hsl(43 74% 66%);
+            --chart-5: hsl(27 87% 67%);
+        }
+        
+        .syntax-highlight {
+            background: linear-gradient(135deg, hsl(217 32% 12%) 0%, hsl(217 32% 15%) 100%);
+        }
+        
+        .progress-bar {
+            background: linear-gradient(90deg, var(--primary) 0%, hsl(173 58% 39%) 100%);
+        }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-background text-foreground font-sans antialiased">
+    
+    <!-- @COMPONENT: Layout Container -->
+    <div class="flex min-h-screen">
+        
+        <!-- @COMPONENT: Sidebar Navigation -->
+        <aside class="w-64 bg-card border-r border-border flex flex-col">
+            <!-- Logo -->
+            <div class="p-6 border-b border-border">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+                        <i class="fas fa-robot text-primary-foreground text-sm"></i>
+                    </div>
+                    <span class="font-bold text-xl">ScraperAI</span>
+                </div>
+            </div>
+            
+            <!-- Navigation Menu -->
+            <nav class="flex-1 p-4 space-y-2">
+                <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-md bg-primary/10 text-primary border border-primary/20">
+                    <i class="fas fa-tachometer-alt w-4"></i>
+                    <span class="font-medium">Dashboard</span>
+                </a>
+                <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-all">
+                    <i class="fas fa-search w-4"></i>
+                    <span>AI Analysis</span>
+                </a>
+                <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-all">
+                    <i class="fas fa-tasks w-4"></i>
+                    <span>Scraping Tasks</span>
+                </a>
+                <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-all">
+                    <i class="fas fa-database w-4"></i>
+                    <span>Data Management</span>
+                </a>
+                <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-all">
+                    <i class="fas fa-code w-4"></i>
+                    <span>Generated Code</span>
+                </a>
+                <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-all">
+                    <i class="fas fa-key w-4"></i>
+                    <span>API Keys</span>
+                </a>
+                <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-all">
+                    <i class="fas fa-chart-bar w-4"></i>
+                    <span>Analytics</span>
+                </a>
+            </nav>
+            
+            <!-- User Profile -->
+            <div class="p-4 border-t border-border">
+                <div class="flex items-center gap-3 px-3 py-2">
+                    <div class="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
+                        <i class="fas fa-user text-primary-foreground text-sm"></i>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="text-sm font-medium truncate" data-bind="user.name">John Developer</div>
+                        <div class="text-xs text-muted-foreground truncate" data-bind="user.plan">Pro Plan</div>
+                    </div>
+                    <button class="text-muted-foreground hover:text-foreground">
+                        <i class="fas fa-cog text-sm"></i>
+                    </button>
+                </div>
+            </div>
+        </aside>
+        <!-- @END_COMPONENT: Sidebar Navigation -->
+        
+        <!-- @COMPONENT: Main Content -->
+        <main class="flex-1 flex flex-col">
+            
+            <!-- @COMPONENT: Header -->
+            <header class="bg-card border-b border-border px-6 py-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h1 class="text-2xl font-bold">Dashboard</h1>
+                        <p class="text-muted-foreground">Monitor and manage your AI-powered scraping operations</p>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <div class="flex items-center gap-2 px-3 py-1.5 bg-primary/10 text-primary rounded-full text-sm">
+                            <div class="w-2 h-2 bg-primary rounded-full animate-pulse"></div>
+                            <span data-bind="activeJobs">3 Active Jobs</span>
+                        </div>
+                        <button class="bg-primary hover:bg-primary/90 text-primary-foreground px-4 py-2 rounded-md font-medium transition-colors" data-event="click:startNewScrape">
+                            <i class="fas fa-plus mr-2"></i>
+                            New Scrape
+                        </button>
+                    </div>
+                </div>
+            </header>
+            <!-- @END_COMPONENT: Header -->
+            
+            <!-- @COMPONENT: Content Area -->
+            <div class="flex-1 p-6 space-y-6 overflow-y-auto">
+                
+                <!-- @COMPONENT: Stats Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div class="bg-card border border-border rounded-lg p-6">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-muted-foreground text-sm">Total Scraped</p>
+                                <p class="text-2xl font-bold" data-bind="stats.totalScraped">1,245,892</p>
+                            </div>
+                            <div class="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-download text-primary"></i>
+                            </div>
+                        </div>
+                        <div class="mt-4 flex items-center gap-1 text-sm">
+                            <i class="fas fa-arrow-up text-green-400 text-xs"></i>
+                            <span class="text-green-400">+12.5%</span>
+                            <span class="text-muted-foreground">from last month</span>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-card border border-border rounded-lg p-6">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-muted-foreground text-sm">Active Tasks</p>
+                                <p class="text-2xl font-bold" data-bind="stats.activeTasks">23</p>
+                            </div>
+                            <div class="w-12 h-12 bg-chart-2/10 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-cogs text-chart-2"></i>
+                            </div>
+                        </div>
+                        <div class="mt-4 flex items-center gap-1 text-sm">
+                            <div class="w-2 h-2 bg-chart-2 rounded-full animate-pulse"></div>
+                            <span class="text-muted-foreground">Running jobs</span>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-card border border-border rounded-lg p-6">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-muted-foreground text-sm">Success Rate</p>
+                                <p class="text-2xl font-bold" data-bind="stats.successRate">96.8%</p>
+                            </div>
+                            <div class="w-12 h-12 bg-green-400/10 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-check-circle text-green-400"></i>
+                            </div>
+                        </div>
+                        <div class="mt-4 flex items-center gap-1 text-sm">
+                            <i class="fas fa-arrow-up text-green-400 text-xs"></i>
+                            <span class="text-green-400">+2.1%</span>
+                            <span class="text-muted-foreground">from last week</span>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-card border border-border rounded-lg p-6">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-muted-foreground text-sm">API Calls</p>
+                                <p class="text-2xl font-bold" data-bind="stats.apiCalls">45,210</p>
+                            </div>
+                            <div class="w-12 h-12 bg-chart-4/10 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-plug text-chart-4"></i>
+                            </div>
+                        </div>
+                        <div class="mt-4 flex items-center gap-1 text-sm">
+                            <span class="text-muted-foreground">This month</span>
+                        </div>
+                    </div>
+                </div>
+                <!-- @END_COMPONENT: Stats Cards -->
+                
+                <!-- @COMPONENT: Two Column Layout -->
+                <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+                    
+                    <!-- @COMPONENT: Live Task Monitor -->
+                    <div class="xl:col-span-2 bg-card border border-border rounded-lg">
+                        <div class="p-6 border-b border-border">
+                            <div class="flex items-center justify-between">
+                                <h3 class="text-lg font-semibold">Live Task Monitor</h3>
+                                <div class="flex items-center gap-2">
+                                    <div class="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                                    <span class="text-sm text-muted-foreground">Real-time updates</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="p-6 space-y-4">
+                            <!-- Task Item 1 -->
+                            <div class="border border-border rounded-lg p-4 bg-muted/30">
+                                <div class="flex items-center justify-between mb-3">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                                        <div>
+                                            <p class="font-medium" data-bind="task.name">E-commerce Product Data</p>
+                                            <p class="text-sm text-muted-foreground" data-bind="task.url">shopify-store.example.com</p>
+                                        </div>
+                                    </div>
+                                    <div class="text-right">
+                                        <p class="text-sm font-medium" data-bind="task.progress">1,247 / 2,500</p>
+                                        <p class="text-xs text-muted-foreground" data-bind="task.rate">~45/min</p>
+                                    </div>
+                                </div>
+                                <div class="space-y-2">
+                                    <div class="flex justify-between text-sm">
+                                        <span class="text-muted-foreground">Progress</span>
+                                        <span class="font-medium">49.8%</span>
+                                    </div>
+                                    <div class="w-full bg-muted rounded-full h-2">
+                                        <div class="progress-bar h-2 rounded-full" style="width: 49.8%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Task Item 2 -->
+                            <div class="border border-border rounded-lg p-4">
+                                <div class="flex items-center justify-between mb-3">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-2 h-2 bg-chart-4 rounded-full animate-pulse"></div>
+                                        <div>
+                                            <p class="font-medium" data-bind="task.name">News Articles Scraping</p>
+                                            <p class="text-sm text-muted-foreground" data-bind="task.url">news-website.com</p>
+                                        </div>
+                                    </div>
+                                    <div class="text-right">
+                                        <p class="text-sm font-medium" data-bind="task.progress">856 / 1,200</p>
+                                        <p class="text-xs text-muted-foreground" data-bind="task.rate">~32/min</p>
+                                    </div>
+                                </div>
+                                <div class="space-y-2">
+                                    <div class="flex justify-between text-sm">
+                                        <span class="text-muted-foreground">Progress</span>
+                                        <span class="font-medium">71.3%</span>
+                                    </div>
+                                    <div class="w-full bg-muted rounded-full h-2">
+                                        <div class="bg-chart-4 h-2 rounded-full" style="width: 71.3%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Task Item 3 -->
+                            <div class="border border-border rounded-lg p-4">
+                                <div class="flex items-center justify-between mb-3">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-2 h-2 bg-chart-2 rounded-full animate-pulse"></div>
+                                        <div>
+                                            <p class="font-medium" data-bind="task.name">Real Estate Listings</p>
+                                            <p class="text-sm text-muted-foreground" data-bind="task.url">property-portal.com</p>
+                                        </div>
+                                    </div>
+                                    <div class="text-right">
+                                        <p class="text-sm font-medium" data-bind="task.progress">234 / 890</p>
+                                        <p class="text-xs text-muted-foreground" data-bind="task.rate">~18/min</p>
+                                    </div>
+                                </div>
+                                <div class="space-y-2">
+                                    <div class="flex justify-between text-sm">
+                                        <span class="text-muted-foreground">Progress</span>
+                                        <span class="font-medium">26.3%</span>
+                                    </div>
+                                    <div class="w-full bg-muted rounded-full h-2">
+                                        <div class="bg-chart-2 h-2 rounded-full" style="width: 26.3%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- @END_COMPONENT: Live Task Monitor -->
+                    
+                    <!-- @COMPONENT: AI Analysis Panel -->
+                    <div class="bg-card border border-border rounded-lg">
+                        <div class="p-6 border-b border-border">
+                            <h3 class="text-lg font-semibold flex items-center gap-2">
+                                <i class="fas fa-brain text-primary"></i>
+                                AI Analysis
+                            </h3>
+                        </div>
+                        
+                        <div class="p-6 space-y-6">
+                            <!-- URL Input -->
+                            <div class="space-y-2">
+                                <label class="text-sm font-medium">Website URL</label>
+                                <div class="flex gap-2">
+                                    <input type="url" placeholder="https://example.com" class="flex-1 bg-input border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" data-bind="analysis.url">
+                                    <button class="bg-primary hover:bg-primary/90 text-primary-foreground px-4 py-2 rounded-md text-sm font-medium transition-colors" data-event="click:analyzeWebsite">
+                                        <i class="fas fa-search"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <!-- Analysis Results -->
+                            <div class="space-y-4">
+                                <div class="bg-muted/30 border border-border rounded-lg p-4">
+                                    <div class="flex items-center gap-2 mb-2">
+                                        <i class="fas fa-bullseye text-green-400"></i>
+                                        <span class="font-medium text-sm">Recommended Selector</span>
+                                    </div>
+                                    <code class="text-xs bg-background px-2 py-1 rounded font-mono" data-bind="analysis.selector">.product-item .title</code>
+                                    <p class="text-xs text-muted-foreground mt-2" data-bind="analysis.confidence">95% confidence match</p>
+                                </div>
+                                
+                                <div class="bg-muted/30 border border-border rounded-lg p-4">
+                                    <div class="flex items-center gap-2 mb-2">
+                                        <i class="fas fa-network-wired text-chart-2"></i>
+                                        <span class="font-medium text-sm">Detected Patterns</span>
+                                    </div>
+                                    <div class="space-y-1 text-xs text-muted-foreground">
+                                        <div>• <span data-bind="analysis.pattern1">Product cards in grid layout</span></div>
+                                        <div>• <span data-bind="analysis.pattern2">Pagination with 24 items/page</span></div>
+                                        <div>• <span data-bind="analysis.pattern3">AJAX loading for infinite scroll</span></div>
+                                    </div>
+                                </div>
+                                
+                                <div class="bg-muted/30 border border-border rounded-lg p-4">
+                                    <div class="flex items-center gap-2 mb-2">
+                                        <i class="fas fa-cogs text-chart-4"></i>
+                                        <span class="font-medium text-sm">Suggested Strategy</span>
+                                    </div>
+                                    <p class="text-xs text-muted-foreground" data-bind="analysis.strategy">Use Playwright for SPA navigation with 2s wait time between requests</p>
+                                </div>
+                            </div>
+                            
+                            <button class="w-full bg-secondary hover:bg-secondary/80 text-secondary-foreground py-2 px-4 rounded-md text-sm font-medium transition-colors" data-event="click:createScrapingTask">
+                                Create Scraping Task
+                            </button>
+                        </div>
+                    </div>
+                    <!-- @END_COMPONENT: AI Analysis Panel -->
+                </div>
+                <!-- @END_COMPONENT: Two Column Layout -->
+                
+                <!-- @COMPONENT: Data Table Section -->
+                <div class="bg-card border border-border rounded-lg">
+                    <div class="p-6 border-b border-border">
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-lg font-semibold">Recent Scraped Data</h3>
+                            <div class="flex items-center gap-2">
+                                <button class="bg-secondary hover:bg-secondary/80 text-secondary-foreground px-3 py-2 rounded-md text-sm font-medium transition-colors" data-event="click:exportCSV">
+                                    <i class="fas fa-download mr-2"></i>
+                                    Export CSV
+                                </button>
+                                <button class="bg-muted hover:bg-muted/80 text-muted-foreground px-3 py-2 rounded-md text-sm font-medium transition-colors" data-event="click:refreshData">
+                                    <i class="fas fa-sync-alt"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead class="bg-muted/30">
+                                <tr>
+                                    <th class="text-left p-4 text-sm font-medium text-muted-foreground">Product Name</th>
+                                    <th class="text-left p-4 text-sm font-medium text-muted-foreground">Price</th>
+                                    <th class="text-left p-4 text-sm font-medium text-muted-foreground">URL</th>
+                                    <th class="text-left p-4 text-sm font-medium text-muted-foreground">Scraped At</th>
+                                    <th class="text-left p-4 text-sm font-medium text-muted-foreground">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- @MAP: scrapedData.map(item => ( -->
+                                <tr class="border-t border-border hover:bg-muted/20 transition-colors" data-mock="true">
+                                    <td class="p-4">
+                                        <div class="font-medium" data-bind="item.name">Wireless Bluetooth Headphones</div>
+                                        <div class="text-sm text-muted-foreground" data-bind="item.category">Electronics > Audio</div>
+                                    </td>
+                                    <td class="p-4">
+                                        <span class="font-medium" data-bind="item.price">$89.99</span>
+                                    </td>
+                                    <td class="p-4">
+                                        <a href="#" class="text-primary hover:underline text-sm truncate max-w-xs block" data-bind="item.url">example-shop.com/product/123</a>
+                                    </td>
+                                    <td class="p-4 text-sm text-muted-foreground" data-bind="item.scrapedAt">2 minutes ago</td>
+                                    <td class="p-4">
+                                        <div class="flex items-center gap-2">
+                                            <button class="text-muted-foreground hover:text-foreground" data-event="click:editItem">
+                                                <i class="fas fa-edit text-sm"></i>
+                                            </button>
+                                            <button class="text-muted-foreground hover:text-destructive" data-event="click:deleteItem">
+                                                <i class="fas fa-trash text-sm"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                
+                                <tr class="border-t border-border hover:bg-muted/20 transition-colors" data-mock="true">
+                                    <td class="p-4">
+                                        <div class="font-medium" data-bind="item.name">Smart Home Security Camera</div>
+                                        <div class="text-sm text-muted-foreground" data-bind="item.category">Electronics > Security</div>
+                                    </td>
+                                    <td class="p-4">
+                                        <span class="font-medium" data-bind="item.price">$149.99</span>
+                                    </td>
+                                    <td class="p-4">
+                                        <a href="#" class="text-primary hover:underline text-sm truncate max-w-xs block" data-bind="item.url">example-shop.com/product/456</a>
+                                    </td>
+                                    <td class="p-4 text-sm text-muted-foreground" data-bind="item.scrapedAt">5 minutes ago</td>
+                                    <td class="p-4">
+                                        <div class="flex items-center gap-2">
+                                            <button class="text-muted-foreground hover:text-foreground" data-event="click:editItem">
+                                                <i class="fas fa-edit text-sm"></i>
+                                            </button>
+                                            <button class="text-muted-foreground hover:text-destructive" data-event="click:deleteItem">
+                                                <i class="fas fa-trash text-sm"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                
+                                <tr class="border-t border-border hover:bg-muted/20 transition-colors" data-mock="true">
+                                    <td class="p-4">
+                                        <div class="font-medium" data-bind="item.name">Ergonomic Office Chair</div>
+                                        <div class="text-sm text-muted-foreground" data-bind="item.category">Furniture > Office</div>
+                                    </td>
+                                    <td class="p-4">
+                                        <span class="font-medium" data-bind="item.price">$299.00</span>
+                                    </td>
+                                    <td class="p-4">
+                                        <a href="#" class="text-primary hover:underline text-sm truncate max-w-xs block" data-bind="item.url">example-shop.com/product/789</a>
+                                    </td>
+                                    <td class="p-4 text-sm text-muted-foreground" data-bind="item.scrapedAt">8 minutes ago</td>
+                                    <td class="p-4">
+                                        <div class="flex items-center gap-2">
+                                            <button class="text-muted-foreground hover:text-foreground" data-event="click:editItem">
+                                                <i class="fas fa-edit text-sm"></i>
+                                            </button>
+                                            <button class="text-muted-foreground hover:text-destructive" data-event="click:deleteItem">
+                                                <i class="fas fa-trash text-sm"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <!-- @END_MAP )) -->
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="p-4 border-t border-border flex items-center justify-between text-sm text-muted-foreground">
+                        <span data-bind="pagination.info">Showing 1-20 of 1,247 results</span>
+                        <div class="flex items-center gap-2">
+                            <button class="px-3 py-1 border border-border rounded hover:bg-muted transition-colors" data-event="click:previousPage">Previous</button>
+                            <button class="px-3 py-1 bg-primary text-primary-foreground rounded">1</button>
+                            <button class="px-3 py-1 border border-border rounded hover:bg-muted transition-colors">2</button>
+                            <button class="px-3 py-1 border border-border rounded hover:bg-muted transition-colors">3</button>
+                            <button class="px-3 py-1 border border-border rounded hover:bg-muted transition-colors" data-event="click:nextPage">Next</button>
+                        </div>
+                    </div>
+                </div>
+                <!-- @END_COMPONENT: Data Table Section -->
+                
+                <!-- @COMPONENT: Generated Code Section -->
+                <div class="bg-card border border-border rounded-lg">
+                    <div class="p-6 border-b border-border">
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-lg font-semibold flex items-center gap-2">
+                                <i class="fas fa-code text-primary"></i>
+                                Generated Scraping Code
+                            </h3>
+                            <div class="flex items-center gap-2">
+                                <select class="bg-input border border-border rounded-md px-3 py-2 text-sm" data-bind="codeLanguage">
+                                    <option value="python">Python (Scrapy)</option>
+                                    <option value="playwright">Python (Playwright)</option>
+                                    <option value="javascript">Node.js (Puppeteer)</option>
+                                </select>
+                                <button class="bg-secondary hover:bg-secondary/80 text-secondary-foreground px-3 py-2 rounded-md text-sm font-medium transition-colors" data-event="click:copyCode">
+                                    <i class="fas fa-copy mr-2"></i>
+                                    Copy
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="p-6">
+                        <div class="syntax-highlight rounded-lg p-4 font-mono text-sm overflow-x-auto">
+                            <pre class="text-foreground"><code data-mock="true">import scrapy
+from scrapy import Spider
+
+class ProductSpider(Spider):
+    name = 'products'
+    start_urls = ['https://example-shop.com/products']
+    
+    def parse(self, response):
+        # Extract product links
+        product_links = response.css('.product-item a::attr(href)').getall()
+        
+        for link in product_links:
+            yield response.follow(link, self.parse_product)
+        
+        # Follow pagination
+        next_page = response.css('.pagination .next::attr(href)').get()
+        if next_page:
+            yield response.follow(next_page, self.parse)
+    
+    def parse_product(self, response):
+        yield {
+            'name': response.css('.product-title::text').get(),
+            'price': response.css('.price::text').get(),
+            'description': response.css('.description::text').get(),
+            'url': response.url,
+        }</code></pre>
+                        </div>
+                        
+                        <div class="mt-4 p-4 bg-muted/30 border border-border rounded-lg">
+                            <div class="flex items-start gap-3">
+                                <div class="w-6 h-6 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                                    <i class="fas fa-lightbulb text-primary text-xs"></i>
+                                </div>
+                                <div>
+                                    <p class="font-medium text-sm">AI Recommendations</p>
+                                    <ul class="text-sm text-muted-foreground mt-1 space-y-1">
+                                        <li>• Add delay of 1-2 seconds between requests to avoid rate limiting</li>
+                                        <li>• Consider using rotating user agents for better success rate</li>
+                                        <li>• The site uses lazy loading - enable JavaScript rendering</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- @END_COMPONENT: Generated Code Section -->
+                
+            </div>
+            <!-- @END_COMPONENT: Content Area -->
+            
+        </main>
+        <!-- @END_COMPONENT: Main Content -->
+        
+    </div>
+    <!-- @END_COMPONENT: Layout Container -->
+    
+    <script>
+    // TODO: Implement WebSocket connection for real-time updates
+    // TODO: Implement data table inline editing functionality
+    // TODO: Implement CSV export functionality
+    // TODO: Implement AI website analysis API calls
+    // TODO: Implement scraping task management
+    
+    (() => {
+        // Simple demo functionality for progress bars and live updates
+        function simulateProgress() {
+            const progressBars = document.querySelectorAll('.progress-bar');
+            progressBars.forEach(bar => {
+                const currentWidth = parseFloat(bar.style.width) || 0;
+                if (currentWidth < 100) {
+                    const newWidth = Math.min(currentWidth + Math.random() * 2, 100);
+                    bar.style.width = newWidth + '%';
+                }
+            });
+        }
+        
+        // Update progress every few seconds for demo
+        setInterval(simulateProgress, 3000);
+        
+        // Add hover effects to interactive elements
+        document.addEventListener('DOMContentLoaded', function() {
+            const buttons = document.querySelectorAll('button');
+            buttons.forEach(button => {
+                button.addEventListener('mouseenter', function() {
+                    this.style.transform = 'translateY(-1px)';
+                });
+                button.addEventListener('mouseleave', function() {
+                    this.style.transform = 'translateY(0)';
+                });
+            });
+        });
+    })();
+    </script>
+    
+</body>
+</html>

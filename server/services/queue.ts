@@ -31,7 +31,12 @@ class SimpleQueue {
     if (this.processing || this.jobs.size === 0) return;
     
     this.processing = true;
-    const [jobId, jobData] = this.jobs.entries().next().value;
+    const nextEntry = this.jobs.entries().next();
+    if (nextEntry.done) {
+      this.processing = false;
+      return; // No more jobs
+    }
+    const [jobId, jobData] = nextEntry.value;
     this.jobs.delete(jobId);
     
     try {

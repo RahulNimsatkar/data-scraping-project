@@ -5,7 +5,7 @@ import { storage } from "./storage";
 import { analyzeWebsiteStructure, generateScrapingCode } from "./services/openai";
 import { addScrapingJob } from "./services/queue";
 import { scraperService } from "./services/scraper";
-import { insertScrapingTaskSchema, insertScrapedDataSchema } from "@shared/schema";
+import { scrapingTaskSchema, scrapedDataSchema, websiteAnalysisSchema } from "@shared/schema";
 import crypto from "crypto";
 import puppeteer from 'puppeteer';
 
@@ -105,13 +105,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const analysis = await analyzeWebsiteStructure(url, htmlContent, prompt);
       
       // Store analysis
-      const savedAnalysis = await storage.createWebsiteAnalysis({
+      const validatedAnalysis = websiteAnalysisSchema.parse({
         url,
         selectors: analysis.selectors,
         patterns: analysis.patterns,
         strategy: analysis.strategy,
-        confidence: analysis.confidence.toString()
+        confidence: parseFloat(analysis.confidence.toString()) // Ensure confidence is a number
       });
+      const savedAnalysis = await storage.createWebsiteAnalysis(validatedAnalysis);
 
       res.json({
         ...savedAnalysis,
@@ -127,9 +128,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create new scraping task
   app.post("/api/tasks", authenticateUser, async (req: any, res) => {
     try {
-      const validatedData = insertScrapingTaskSchema.parse({
+      const validatedData = scrapingTaskSchema.parse({
         ...req.body,
-        userId: req.user.id
+        userId: req.user.id,
+        createdAt: new Date(),
+        updatedAt: new Date(),
       });
 
       const task = await storage.createScrapingTask(validatedData);
@@ -137,18 +140,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Generate scraping code
       const generatedCode = await generateScrapingCode(
         task.url,
-        task.selectors,
+        task.selectors || {}, // Provide an empty object as fallback
         task.strategy || "Standard web scraping"
       );
 
-      await storage.updateScrapingTask(task.id, { generatedCode });
+      await storage.updateScrapingTask(task.id!, { generatedCode });
 
       // Add to scraping queue
       await addScrapingJob({
-        taskId: task.id,
+        taskId: task.id!,
         url: task.url,
-        selectors: task.selectors,
-        strategy: task.strategy || "Standard web scraping",
+        selectors: task.selectors || {}, // Provide an empty object as fallback
+        strategy: task.strategy ?? "Standard web scraping",
         maxPages: 5,
         delay: 2000
       });
