@@ -177,31 +177,37 @@ class WebsiteScraper(Spider):
         if next_page:
             yield response.follow(next_page, self.parse)` 
         : 
-        `const puppeteer = require('puppeteer');
+        `const cheerio = require('cheerio');
 
 async function scrapeWebsite() {
-    const browser = await puppeteer.launch({ headless: true });
-    const page = await browser.newPage();
-    
     try {
-        await page.goto('${url}');
+        const response = await fetch('${url}', {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            }
+        });
         
-        const data = await page.evaluate(() => {
-            const items = document.querySelectorAll('${selectors.primary || ".post, .listing, .item"}');
-            return Array.from(items).map(item => ({
-                title: item.querySelector('.title, .name, h1, h2, h3')?.textContent?.trim(),
-                price: item.querySelector('.price, .cost')?.textContent?.trim(),
-                description: item.querySelector('.description, .summary')?.textContent?.trim(),
-                link: item.querySelector('a')?.href,
-                url: window.location.href
-            }));
+        const html = await response.text();
+        const $ = cheerio.load(html);
+        
+        const data = [];
+        $('${selectors.primary || ".post, .listing, .item"}').each((i, item) => {
+            const $item = $(item);
+            data.push({
+                title: $item.find('.title, .name, h1, h2, h3').first().text()?.trim(),
+                price: $item.find('.price, .cost').first().text()?.trim(),
+                description: $item.find('.description, .summary').first().text()?.trim(),
+                link: $item.find('a').first().attr('href'),
+                url: '${url}'
+            });
         });
         
         console.log('Scraped data:', data);
         return data;
         
-    } finally {
-        await browser.close();
+    } catch (error) {
+        console.error('Scraping error:', error);
+        return [];
     }
 }
 

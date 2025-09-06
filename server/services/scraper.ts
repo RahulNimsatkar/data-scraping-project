@@ -1,4 +1,4 @@
-import puppeteer from 'puppeteer';
+// Removed puppeteer - using HTTP requests instead
 import * as cheerio from 'cheerio';
 import { storage } from '../storage';
 import { WebSocketServer } from 'ws';
@@ -48,42 +48,74 @@ export class ScraperService {
     try {
       await storage.updateScrapingTask(taskId, { status: 'running' });
       
-      const browser = await puppeteer.launch({
-        headless: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
-      });
-
-      const page = await browser.newPage();
-      await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
-      
       let scrapedCount = 0;
       let currentPage = 1;
       let hasNextPage = true;
 
-      this.activeTasks.set(taskId, { browser, page });
+      this.activeTasks.set(taskId, { active: true });
 
-      while (hasNextPage && currentPage <= (options.maxPages || 10)) {
-        const currentUrl = options.url + (currentPage > 1 ? `?page=${currentPage}` : '');
+      while (hasNextPage && currentPage <= (options.maxPages || 3)) {
+        const currentUrl = options.url + (currentPage > 1 ? `/page/${currentPage}/` : '');
         
-        await page.goto(currentUrl, { waitUntil: 'networkidle0' });
-        await page.waitForSelector('body', { timeout: 5000 }).catch(() => {});
-      await new Promise(resolve => setTimeout(resolve, options.delay || 2000));
-
-        const content = await page.content();
+        console.log(`Scraping page ${currentPage}: ${currentUrl}`);
+        
+        // Use HTTP request instead of browser
+        const response = await fetch(currentUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const content = await response.text();
+        await new Promise(resolve => setTimeout(resolve, options.delay || 2000));
         const $ = cheerio.load(content);
 
-        // Extract data based on selectors
-        const items = $(options.selectors.primary || options.selectors.itemContainer);
+        // Extract data based on selectors - try multiple approaches
+        let items = $(options.selectors.primary || options.selectors.itemContainer);
+        
+        // If primary selector doesn't work, try fallback selectors
+        if (items.length === 0 && options.selectors.fallback) {
+          for (const fallbackSelector of options.selectors.fallback) {
+            items = $(fallbackSelector);
+            if (items.length > 0) {
+              console.log(`Found ${items.length} items using fallback selector: ${fallbackSelector}`);
+              break;
+            }
+          }
+        }
+        
+        // If still no items, try common selectors for hoarding/listing websites
+        if (items.length === 0) {
+          const genericSelectors = [
+            'div[class*="listing"]', 'div[class*="item"]', 'div[class*="product"]',
+            'div[class*="card"]', 'div[class*="hoarding"]', 'div[class*="content"]',
+            'article', '.entry', '.post', 'div.row > div', 'section > div'
+          ];
+          
+          for (const selector of genericSelectors) {
+            items = $(selector);
+            if (items.length > 0) {
+              console.log(`Found ${items.length} items using generic selector: ${selector}`);
+              break;
+            }
+          }
+        }
         
         if (items.length === 0) {
           await storage.createTaskLog({
             taskId,
             level: 'warning',
-            message: `No items found on page ${currentPage} with selector ${options.selectors.primary}`,
-            metadata: { url: currentUrl, page: currentPage }
+            message: `No items found on page ${currentPage} with any selector`,
+            metadata: { url: currentUrl, page: currentPage, contentLength: content.length }
           });
           break;
         }
+        
+        console.log(`Processing ${items.length} items from page ${currentPage}`);
 
         // Process each item
         for (let i = 0; i < items.length; i++) {
@@ -111,12 +143,11 @@ export class ScraperService {
           }
         }
 
-        // Check for pagination
-        hasNextPage = await this.hasNextPage(page, options);
+        // Check for pagination by looking for items on next page
+        hasNextPage = currentPage < (options.maxPages || 3) && items.length > 0;
         currentPage++;
       }
 
-      await browser.close();
       this.activeTasks.delete(taskId);
 
       await storage.updateScrapingTask(taskId, { 
@@ -159,10 +190,6 @@ export class ScraperService {
       });
 
       // Clean up
-      const task = this.activeTasks.get(taskId);
-      if (task?.browser) {
-        await task.browser.close();
-      }
       this.activeTasks.delete(taskId);
     }
   }
@@ -172,21 +199,30 @@ export class ScraperService {
 
     // Extract based on common patterns
     try {
-      // Title/Name
-      const titleSelectors = ['.title', '.name', '.product-title', 'h1', 'h2', 'h3'];
+      // Title/Name - more comprehensive search
+      const titleSelectors = ['.title', '.name', '.product-title', 'h1', 'h2', 'h3', 'h4', '[class*="title"]', '[class*="name"]'];
       for (const sel of titleSelectors) {
         const title = item.find(sel).first().text().trim();
-        if (title) {
+        if (title && title.length > 3) {
           data.title = title;
           break;
         }
       }
+      
+      // If no specific title found, try to get any text content
+      if (!data.title) {
+        const allText = item.text().trim();
+        if (allText && allText.length > 5) {
+          // Take first meaningful line of text
+          data.title = allText.split('\n')[0].trim().substring(0, 100);
+        }
+      }
 
-      // Price
-      const priceSelectors = ['.price', '.cost', '.amount', '[class*="price"]'];
+      // Price - look for various price patterns
+      const priceSelectors = ['.price', '.cost', '.amount', '[class*="price"]', '[class*="cost"]'];
       for (const sel of priceSelectors) {
         const price = item.find(sel).first().text().trim();
-        if (price && /[\$£€¥₹]/.test(price)) {
+        if (price && (price.includes('₹') || price.includes('$') || price.includes('Rs') || /\d+/.test(price))) {
           data.price = price;
           break;
         }
@@ -221,30 +257,7 @@ export class ScraperService {
     return data;
   }
 
-  private async hasNextPage(page: any, options: ScrapingOptions): Promise<boolean> {
-    try {
-      // Check for common pagination patterns
-      const nextSelectors = [
-        '.next', '.pagination .next', '[aria-label="Next"]', 
-        '.pager-next', '.page-numbers.next'
-      ];
-
-      for (const selector of nextSelectors) {
-        const nextBtn = await page.$(selector);
-        if (nextBtn) {
-          const isDisabled = await page.evaluate(
-            (el: any) => el.disabled || el.classList.contains('disabled'), 
-            nextBtn
-          );
-          return !isDisabled;
-        }
-      }
-
-      return false;
-    } catch (error) {
-      return false;
-    }
-  }
+  // Removed hasNextPage method - now using simple page limit check
 
   async pauseTask(taskId: string): Promise<void> {
     const task = this.activeTasks.get(taskId);
@@ -256,8 +269,7 @@ export class ScraperService {
 
   async stopTask(taskId: string): Promise<void> {
     const task = this.activeTasks.get(taskId);
-    if (task?.browser) {
-      await task.browser.close();
+    if (task) {
       this.activeTasks.delete(taskId);
       await storage.updateScrapingTask(taskId, { status: 'failed', errorMessage: 'Task stopped by user' });
     }
