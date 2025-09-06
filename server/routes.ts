@@ -77,7 +77,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Analyze website structure
   app.post("/api/analyze", authenticateUser, async (req: any, res) => {
     try {
-      const { url } = req.body;
+      const { url, prompt } = req.body;
       
       if (!url) {
         return res.status(400).json({ message: "URL is required" });
@@ -90,18 +90,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json(existingAnalysis);
       }
 
-      // Fetch website content
-      const browser = await puppeteer.launch({ 
-        headless: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
+      let htmlContent = '';
+      
+      // Use simple fetch for now since browser dependencies are not available in this environment
+      console.log('Fetching website content using HTTP request...');
+      const response = await fetch(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
       });
-      const page = await browser.newPage();
-      await page.goto(url, { waitUntil: 'networkidle0' });
-      const htmlContent = await page.content();
-      await browser.close();
+      htmlContent = await response.text();
 
       // Analyze with OpenAI
-      const analysis = await analyzeWebsiteStructure(url, htmlContent);
+      const analysis = await analyzeWebsiteStructure(url, htmlContent, prompt);
       
       // Store analysis
       const savedAnalysis = await storage.createWebsiteAnalysis({

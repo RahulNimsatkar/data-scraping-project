@@ -27,6 +27,7 @@ interface AnalysisResult {
 
 export function AIAnalysisPanel() {
   const [url, setUrl] = useState("");
+  const [prompt, setPrompt] = useState("");
   const [lastAnalyzedUrl, setLastAnalyzedUrl] = useState("");
   const { toast } = useToast();
 
@@ -36,8 +37,8 @@ export function AIAnalysisPanel() {
   });
 
   const analyzeMutation = useMutation({
-    mutationFn: async (url: string) => {
-      const response = await apiRequest("POST", "/api/analyze", { url });
+    mutationFn: async ({ url, prompt }: { url: string; prompt?: string }) => {
+      const response = await apiRequest("POST", "/api/analyze", { url, prompt });
       return response.json();
     },
     onSuccess: () => {
@@ -85,7 +86,7 @@ export function AIAnalysisPanel() {
 
   const handleAnalyze = () => {
     if (!url) return;
-    analyzeMutation.mutate(url);
+    analyzeMutation.mutate({ url, prompt });
   };
 
   const handleCreateTask = () => {
@@ -103,29 +104,46 @@ export function AIAnalysisPanel() {
       
       <CardContent className="p-6 space-y-6">
         {/* URL Input */}
-        <div className="space-y-2">
-          <Label htmlFor="url-input" className="text-sm font-medium text-foreground">
-            Website URL
-          </Label>
-          <div className="flex gap-2">
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="url-input" className="text-sm font-medium text-foreground">
+              Website URL
+            </Label>
             <Input
               id="url-input"
               type="url"
               placeholder="https://example.com"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
-              className="flex-1 bg-input border-border text-foreground"
+              className="bg-input border-border text-foreground"
               data-testid="input-website-url"
             />
-            <Button
-              onClick={handleAnalyze}
-              disabled={!url || analyzeMutation.isPending}
-              className="bg-primary hover:bg-primary/90 text-primary-foreground"
-              data-testid="button-analyze-website"
-            >
-              <Search className="w-4 h-4" />
-            </Button>
           </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="prompt-input" className="text-sm font-medium text-foreground">
+              Custom Instructions (Optional)
+            </Label>
+            <Input
+              id="prompt-input"
+              type="text"
+              placeholder="e.g., Focus on product listings, extract prices and titles"
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              className="bg-input border-border text-foreground"
+              data-testid="input-custom-prompt"
+            />
+          </div>
+          
+          <Button
+            onClick={handleAnalyze}
+            disabled={!url || analyzeMutation.isPending}
+            className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
+            data-testid="button-analyze-website"
+          >
+            <Search className="w-4 h-4 mr-2" />
+            {analyzeMutation.isPending ? "Analyzing..." : "Analyze Website"}
+          </Button>
         </div>
         
         {/* Analysis Results */}

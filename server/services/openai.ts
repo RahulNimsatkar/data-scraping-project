@@ -21,9 +21,12 @@ interface WebsiteAnalysisResult {
   recommendations: string[];
 }
 
-export async function analyzeWebsiteStructure(url: string, htmlContent: string): Promise<WebsiteAnalysisResult> {
+export async function analyzeWebsiteStructure(url: string, htmlContent: string, customPrompt?: string): Promise<WebsiteAnalysisResult> {
   try {
-    const prompt = `Analyze the following HTML content from ${url} and provide web scraping recommendations. 
+    const basePrompt = `Analyze the following HTML content from ${url} and provide web scraping recommendations.`;
+    const customInstructions = customPrompt ? `\n\nAdditional Instructions: ${customPrompt}` : '';
+    
+    const prompt = `${basePrompt}${customInstructions}
 
 HTML Content (truncated):
 ${htmlContent.substring(0, 10000)}
@@ -73,6 +76,32 @@ Return JSON in this exact format:
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error("OpenAI analysis error:", error);
+    
+    // Fallback response when OpenAI is not available
+    if (errorMessage.includes('quota') || errorMessage.includes('429')) {
+      console.log('OpenAI quota exceeded, using fallback analysis');
+      return {
+        selectors: {
+          primary: ".post, .listing, .item, .card, article",
+          fallback: [".content", ".entry", ".product", ".hoarding"]
+        },
+        patterns: {
+          itemContainer: ".post, .listing, .item",
+          pagination: true,
+          infiniteScroll: false,
+          ajaxLoading: false
+        },
+        strategy: "Standard content extraction with pagination support. Focus on main content areas and listing containers.",
+        confidence: 75,
+        recommendations: [
+          "Use rate limiting between requests",
+          "Handle pagination with proper delays",
+          "Extract structured data from list items",
+          "Consider using CSS selectors for reliable targeting"
+        ]
+      };
+    }
+    
     throw new Error(`Failed to analyze website structure: ${errorMessage}`);
   }
 }
