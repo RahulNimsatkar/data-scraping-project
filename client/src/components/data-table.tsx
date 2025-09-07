@@ -30,16 +30,21 @@ export function DataTable() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  // Get recent scraped data from the first available task
+  // Get recent scraped data from the most recent completed task
   const { data: tasks } = useQuery({
     queryKey: ["/api/tasks"],
   });
 
-  const firstTaskId = (tasks as any[])?.[0]?.id;
+  // Find the most recently completed task with scraped data
+  const recentTask = (tasks as any[])?.find(task => 
+    task.status === 'completed' && task.scrapedItems > 0
+  ) || (tasks as any[])?.[0];
+  
+  const recentTaskId = recentTask?.id;
 
   const { data: scrapedData, isLoading, refetch } = useQuery<ScrapedDataItem[]>({
-    queryKey: ["/api/tasks", firstTaskId, "data"],
-    enabled: !!firstTaskId,
+    queryKey: ["/api/tasks", recentTaskId, "data"],
+    enabled: !!recentTaskId,
   });
 
   const updateMutation = useMutation({
@@ -48,7 +53,7 @@ export function DataTable() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/tasks", firstTaskId, "data"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks", recentTaskId, "data"] });
       setEditingId(null);
       setEditData({});
       toast({
@@ -70,7 +75,7 @@ export function DataTable() {
       await apiRequest("DELETE", `/api/data/${id}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/tasks", firstTaskId, "data"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks", recentTaskId, "data"] });
       toast({
         title: "Data Deleted",
         description: "Scraped data deleted successfully.",
@@ -86,16 +91,16 @@ export function DataTable() {
   });
 
   const handleExport = async () => {
-    if (!firstTaskId) return;
+    if (!recentTaskId) return;
     
     try {
-      const response = await fetch(`/api/tasks/${firstTaskId}/export`);
+      const response = await fetch(`/api/tasks/${recentTaskId}/export`);
       if (response.ok) {
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `scraped-data-${firstTaskId}.csv`;
+        a.download = `scraped-data-${recentTaskId}.csv`;
         document.body.appendChild(a);
         a.click();
         window.URL.revokeObjectURL(url);
