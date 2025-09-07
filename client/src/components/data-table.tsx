@@ -222,15 +222,15 @@ export function DataTable() {
             No scraped data available. Start a scraping task to see results here.
           </div>
         ) : viewMode === 'json' ? (
-          <div className="p-3 space-y-2 max-h-[400px] overflow-y-auto">
+          <div className="p-2 space-y-1 max-h-[350px] overflow-y-auto">
             {currentData.map((item, index) => (
-              <div key={item.id} className="border border-border rounded p-2 bg-muted/5 hover:bg-muted/10 transition-colors" data-testid={`json-item-${item.id}`}>
+              <div key={item.id} className="border border-border rounded p-2 bg-muted/5 hover:bg-muted/10 transition-colors max-w-full" data-testid={`json-item-${item.id}`}>
                 <div className="flex justify-between items-center mb-2">
                   <div className="flex items-center gap-2">
                     <Badge variant="outline" className="text-xs py-0 px-1 h-5">
                       #{startIndex + index + 1}
                     </Badge>
-                    <span className="text-xs text-muted-foreground font-medium">
+                    <span className="text-xs text-muted-foreground font-medium truncate max-w-[200px]">
                       {item.data.title || item.data.name || "No title"}
                     </span>
                   </div>
@@ -262,8 +262,8 @@ export function DataTable() {
                 
                 {editingId === item.id ? (
                   <div className="space-y-2">
-                    <div className="p-2 bg-background border border-border rounded text-xs font-mono overflow-x-auto max-h-32">
-                      <pre>{JSON.stringify(editData, null, 2)}</pre>
+                    <div className="p-2 bg-background border border-border rounded text-xs font-mono overflow-hidden max-h-28">
+                      <pre className="whitespace-pre-wrap break-words">{JSON.stringify(editData, null, 1)}</pre>
                     </div>
                     <div className="flex items-center gap-2">
                       <Button
@@ -287,8 +287,8 @@ export function DataTable() {
                     </div>
                   </div>
                 ) : (
-                  <div className="p-2 bg-background border border-border rounded text-xs font-mono overflow-x-auto max-h-24">
-                    <pre className="text-foreground leading-tight">{JSON.stringify(item.data, null, 2)}</pre>
+                  <div className="p-2 bg-background border border-border rounded text-xs font-mono overflow-hidden max-h-20">
+                    <pre className="text-foreground leading-tight whitespace-pre-wrap break-words overflow-hidden">{JSON.stringify(item.data, null, 1)}</pre>
                   </div>
                 )}
               </div>
