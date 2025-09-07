@@ -8,6 +8,7 @@ import { CodeExecutionPanel } from "@/components/code-execution-panel";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
+import { useLocation } from "wouter";
 
 interface DashboardStats {
   totalScraped: number;
@@ -17,6 +18,8 @@ interface DashboardStats {
 }
 
 export default function Dashboard() {
+  const [, setLocation] = useLocation();
+  
   const { data: stats, isLoading: statsLoading } = useQuery<DashboardStats>({
     queryKey: ["/api/stats"],
   });
@@ -25,6 +28,10 @@ export default function Dashboard() {
     queryKey: ["/api/tasks/active"],
     refetchInterval: 5000,
   });
+
+  const handleNewScrape = () => {
+    setLocation("/analyze");
+  };
 
 
   return (
@@ -47,6 +54,7 @@ export default function Dashboard() {
                 </span>
               </div>
               <Button 
+                onClick={handleNewScrape}
                 className="bg-primary hover:bg-primary/90 text-primary-foreground"
                 data-testid="button-new-scrape"
               >
