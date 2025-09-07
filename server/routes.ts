@@ -273,6 +273,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update task (including custom generated code)
+  app.put("/api/tasks/:taskId", authenticateUser, async (req: any, res) => {
+    try {
+      const { taskId } = req.params;
+      const updates = req.body;
+      
+      const updatedTask = await storage.updateScrapingTask(taskId, {
+        ...updates,
+        updatedAt: new Date()
+      });
+      res.json(updatedTask);
+    } catch (error) {
+      console.error("Update task error:", error);
+      res.status(500).json({ message: "Failed to update task" });
+    }
+  });
+
   // Export data in multiple formats
   app.get("/api/tasks/:taskId/export", authenticateUser, async (req: any, res) => {
     try {

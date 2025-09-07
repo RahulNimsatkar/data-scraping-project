@@ -176,14 +176,14 @@ export function GeneratedCode() {
   });
 
   // Get scraped data for more accurate code generation
-  const { data: scrapedData } = useQuery({
+  const { data: scrapedData } = useQuery<any[]>({
     queryKey: ["/api/tasks", activeTaskId, "data"],
     enabled: !!activeTaskId,
   });
 
   // Use the first task with generated code, or fallback to example
   const taskWithCode = (tasks as any[])?.find((task: any) => task.generatedCode);
-  const baseCode = taskWithCode?.generatedCode || codeExamples[language];
+  const baseCode = taskWithCode?.generatedCode || getDefaultCodeExamples(language);
   const displayCode = isEditing ? editedCode : baseCode;
 
   // Update edited code when switching tasks or languages
@@ -382,7 +382,7 @@ export function GeneratedCode() {
         ) : (
           <div className="syntax-highlight rounded-lg p-4 font-mono text-sm overflow-x-auto bg-muted/20">
             <pre className="text-foreground whitespace-pre-wrap">
-              <code data-testid="text-generated-code">{taskWithCode ? generateDynamicCode(taskWithCode, scrapedData || [], language) : displayCode}</code>
+              <code data-testid="text-generated-code">{taskWithCode ? generateDynamicCode(taskWithCode, scrapedData || [], language) : getDefaultCodeExamples(language)}</code>
             </pre>
           </div>
         )}
@@ -397,14 +397,15 @@ export function GeneratedCode() {
                 <p className="font-medium text-sm text-foreground">AI Recommendations</p>
                 <ul className="text-sm text-muted-foreground mt-1 space-y-1">
                   {taskWithCode ? (
-                    taskWithCode.analysis?.recommendations?.map((rec: string, index: number) => (
-                      <li key={index}>• {rec}</li>
-                    )) || [
-                      <li key="delay">• Add 2-3 second delays between requests for {new URL(taskWithCode.url).hostname}</li>,
-                      <li key="headers">• Use proper headers and user agents to avoid detection</li>,
-                      <li key="selectors">• The detected selectors have {taskWithCode.analysis?.confidence || 'medium'}% confidence</li>,
-                      <li key="data">• {scrapedData?.length || 0} items successfully scraped with current configuration</li>
-                    ]
+                    taskWithCode.analysis?.recommendations?.length > 0 ? 
+                      taskWithCode.analysis.recommendations.map((rec: string, index: number) => (
+                        <li key={index}>• {rec}</li>
+                      )) : [
+                        <li key="delay">• Add 2-3 second delays between requests for {new URL(taskWithCode.url).hostname}</li>,
+                        <li key="headers">• Use proper headers and user agents to avoid detection</li>,
+                        <li key="selectors">• The detected selectors have {taskWithCode.analysis?.confidence || 'medium'}% confidence</li>,
+                        <li key="data">• {(scrapedData || []).length} items successfully scraped with current configuration</li>
+                      ]
                   ) : (
                     [
                       <li key="delay">• Add delay of 1-2 seconds between requests to avoid rate limiting</li>,
