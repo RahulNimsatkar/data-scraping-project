@@ -9,8 +9,8 @@ import { Label } from "@/components/ui/label";
 import { useState } from "react";
 import { Key, Plus, Trash2, Copy, Eye, EyeOff, CheckCircle, XCircle, TestTube, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useQuery, useMutation, queryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
 // AI Provider types and constants
 type AIProvider = 'openai' | 'gemini' | 'claude' | 'cohere' | 'huggingface';

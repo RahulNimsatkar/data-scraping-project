@@ -10,6 +10,21 @@ The system automatically identifies data patterns, suggests CSS selectors and ex
 
 Preferred communication style: Simple, everyday language.
 
+## Recent Changes
+
+### Multi-Provider API Key Management System (September 2025)
+- **Complete AI Provider Integration**: Added comprehensive API key management for multiple AI providers including OpenAI, Gemini, Claude, Cohere, and Hugging Face
+- **Dynamic AI Service Layer**: Modified OpenAI service to automatically use user-provided API keys instead of hardcoded credentials
+- **User-Friendly Interface**: Created dedicated API key management page with provider selection, key testing, and usage tracking
+- **Automatic Integration**: The application now automatically uses user's API keys for all AI requests, falling back to default keys if none are provided
+- **Enhanced Security**: API keys are safely stored with truncated display for security while maintaining full functionality
+
+### Dynamic Analytics and Real-time Monitoring (September 2025)
+- **Advanced Analytics Routes**: Added comprehensive analytics endpoints for auto-analysis, bulk processing, and real-time monitoring
+- **Real-time Task Monitoring**: Created live dashboard for tracking scraping progress with WebSocket updates
+- **Enhanced AI Analysis**: Improved website analysis with metrics collection, confidence scoring, and automatic task creation
+- **Bulk Processing**: Support for analyzing multiple websites simultaneously with progress tracking
+
 ## System Architecture
 
 ### Frontend Architecture
