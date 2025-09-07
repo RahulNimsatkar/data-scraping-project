@@ -4,6 +4,7 @@ import { LiveTaskMonitor } from "@/components/live-task-monitor";
 import { AIAnalysisPanel } from "@/components/ai-analysis-panel";
 import { DataTable } from "@/components/data-table";
 import { GeneratedCode } from "@/components/generated-code";
+import { CodeExecutionPanel } from "@/components/code-execution-panel";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
@@ -71,6 +72,9 @@ export default function Dashboard() {
             {/* AI Analysis Panel */}
             <AIAnalysisPanel />
           </div>
+
+          {/* Code Execution Panel */}
+          <CodeExecutionPanel />
 
           {/* Data Table Section */}
           <DataTable />

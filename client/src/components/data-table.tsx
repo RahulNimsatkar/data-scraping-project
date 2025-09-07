@@ -11,7 +11,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Download, RefreshCw, Edit, Trash2, ExternalLink, ChevronLeft, ChevronRight, Database, FileJson } from "lucide-react";
+import { Download, RefreshCw, Edit, Trash2, ExternalLink, ChevronLeft, ChevronRight, Database, FileJson, Search, Filter, SortAsc, SortDesc } from "lucide-react";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -31,6 +31,10 @@ export function DataTable() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(20);
   const [viewMode, setViewMode] = useState<'json' | 'table'>('json');
+  const [searchTerm, setSearchTerm] = useState("");
+  const [sortField, setSortField] = useState<string>("");
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [showFilters, setShowFilters] = useState(false);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -51,12 +55,46 @@ export function DataTable() {
     enabled: !!recentTaskId,
   });
 
+  // Filter and search data
+  const filteredData = scrapedData?.filter(item => {
+    if (!searchTerm) return true;
+    const searchLower = searchTerm.toLowerCase();
+    const title = String(item.data.title || '').toLowerCase();
+    const description = String(item.data.description || '').toLowerCase();
+    const price = String(item.data.price || '').toLowerCase();
+    return title.includes(searchLower) || description.includes(searchLower) || price.includes(searchLower);
+  }) || [];
+
+  // Sort data
+  const sortedData = [...filteredData].sort((a, b) => {
+    if (!sortField) return 0;
+    
+    let aValue = a.data[sortField] || a[sortField] || '';
+    let bValue = b.data[sortField] || b[sortField] || '';
+    
+    // Handle date sorting
+    if (sortField === 'scrapedAt') {
+      aValue = new Date(a.scrapedAt).getTime();
+      bValue = new Date(b.scrapedAt).getTime();
+    }
+    
+    // Handle numeric sorting
+    if (sortField === 'price') {
+      aValue = parseFloat(String(aValue).replace(/[^0-9.]/g, '')) || 0;
+      bValue = parseFloat(String(bValue).replace(/[^0-9.]/g, '')) || 0;
+    }
+    
+    if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
+    if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
+    return 0;
+  });
+
   // Pagination calculations
-  const totalItems = scrapedData?.length || 0;
+  const totalItems = sortedData.length;
   const totalPages = Math.ceil(totalItems / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = Math.min(startIndex + itemsPerPage, totalItems);
-  const currentData = scrapedData?.slice(startIndex, endIndex) || [];
+  const currentData = sortedData.slice(startIndex, endIndex);
 
   const handlePreviousPage = () => {
     setCurrentPage(prev => Math.max(prev - 1, 1));
@@ -170,6 +208,25 @@ export function DataTable() {
             </CardDescription>
           </div>
           <div className="flex items-center gap-2">
+            <div className="relative">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search data..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 w-48 bg-input border-border text-foreground"
+                data-testid="input-search-data"
+              />
+            </div>
+            <Button
+              onClick={() => setShowFilters(!showFilters)}
+              variant="outline"
+              size="sm"
+              className={showFilters ? "bg-primary/10" : ""}
+              data-testid="button-toggle-filters"
+            >
+              <Filter className="w-4 h-4" />
+            </Button>
             <Select value={viewMode} onValueChange={(value: 'json' | 'table') => setViewMode(value)}>
               <SelectTrigger className="w-[120px]" data-testid="select-view-mode">
                 <SelectValue />
@@ -299,10 +356,61 @@ export function DataTable() {
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/30">
-                  <TableHead className="text-muted-foreground">Item</TableHead>
-                  <TableHead className="text-muted-foreground">Price</TableHead>
+                  <TableHead 
+                    className="text-muted-foreground cursor-pointer hover:text-foreground"
+                    onClick={() => {
+                      if (sortField === 'title') {
+                        setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+                      } else {
+                        setSortField('title');
+                        setSortDirection('asc');
+                      }
+                    }}
+                  >
+                    <div className="flex items-center gap-1">
+                      Item
+                      {sortField === 'title' && (
+                        sortDirection === 'asc' ? <SortAsc className="w-4 h-4" /> : <SortDesc className="w-4 h-4" />
+                      )}
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    className="text-muted-foreground cursor-pointer hover:text-foreground"
+                    onClick={() => {
+                      if (sortField === 'price') {
+                        setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+                      } else {
+                        setSortField('price');
+                        setSortDirection('asc');
+                      }
+                    }}
+                  >
+                    <div className="flex items-center gap-1">
+                      Price
+                      {sortField === 'price' && (
+                        sortDirection === 'asc' ? <SortAsc className="w-4 h-4" /> : <SortDesc className="w-4 h-4" />
+                      )}
+                    </div>
+                  </TableHead>
                   <TableHead className="text-muted-foreground">URL</TableHead>
-                  <TableHead className="text-muted-foreground">Scraped At</TableHead>
+                  <TableHead 
+                    className="text-muted-foreground cursor-pointer hover:text-foreground"
+                    onClick={() => {
+                      if (sortField === 'scrapedAt') {
+                        setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+                      } else {
+                        setSortField('scrapedAt');
+                        setSortDirection('desc');
+                      }
+                    }}
+                  >
+                    <div className="flex items-center gap-1">
+                      Scraped At
+                      {sortField === 'scrapedAt' && (
+                        sortDirection === 'asc' ? <SortAsc className="w-4 h-4" /> : <SortDesc className="w-4 h-4" />
+                      )}
+                    </div>
+                  </TableHead>
                   <TableHead className="text-muted-foreground">Actions</TableHead>
                 </TableRow>
               </TableHeader>
