@@ -132,7 +132,7 @@ export class ScraperService {
         // Process each item
         for (let i = 0; i < items.length; i++) {
           const item = items.eq(i);
-          const data = this.extractItemData($, item, options.selectors);
+          const data = this.extractItemData($, item, options.selectors, currentUrl);
           
           if (data && Object.keys(data).length > 0) {
             await storage.createScrapedData({
@@ -208,7 +208,7 @@ export class ScraperService {
     }
   }
 
-  private extractItemData($: cheerio.CheerioAPI, item: cheerio.Cheerio<any>, selectors: any): any {
+  private extractItemData($: cheerio.CheerioAPI, item: cheerio.Cheerio<any>, selectors: any, baseUrl: string): any {
     const data: any = {};
 
     // Extract based on comprehensive patterns
@@ -261,13 +261,13 @@ export class ScraperService {
       // Link
       const link = item.find('a').first().attr('href');
       if (link) {
-        data.link = link.startsWith('http') ? link : `${new URL(selectors.url).origin}${link}`;
+        data.link = link.startsWith('http') ? link : `${new URL(baseUrl).origin}${link}`;
       }
 
       // Image
       const img = item.find('img').first().attr('src');
       if (img) {
-        data.image = img.startsWith('http') ? img : `${new URL(selectors.url).origin}${img}`;
+        data.image = img.startsWith('http') ? img : `${new URL(baseUrl).origin}${img}`;
       }
 
     } catch (error) {
