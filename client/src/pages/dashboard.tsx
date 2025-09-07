@@ -5,7 +5,6 @@ import { AIAnalysisPanel } from "@/components/ai-analysis-panel";
 import { DataTable } from "@/components/data-table";
 import { GeneratedCode } from "@/components/generated-code";
 import { useQuery } from "@tanstack/react-query";
-import { useWebSocket } from "@/hooks/use-websocket";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 
@@ -26,8 +25,6 @@ export default function Dashboard() {
     refetchInterval: 5000,
   });
 
-  // WebSocket for real-time updates
-  useWebSocket();
 
   return (
     <div className="flex min-h-screen bg-background">
