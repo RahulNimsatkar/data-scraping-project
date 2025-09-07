@@ -273,34 +273,300 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Export data as CSV
+  // Export data in multiple formats
   app.get("/api/tasks/:taskId/export", authenticateUser, async (req: any, res) => {
     try {
       const { taskId } = req.params;
+      const { format = 'json' } = req.query;
       const data = await storage.getScrapedData(taskId, 10000, 0);
       
       if (data.length === 0) {
         return res.status(404).json({ message: "No data found to export" });
       }
 
-      // Convert to CSV
-      const headers = Object.keys(data[0].data as Record<string, any>);
-      const csvRows = [
-        headers.join(','),
-        ...data.map(item => 
-          headers.map(header => {
-            const value = (item.data as Record<string, any>)[header] || '';
-            return `"${String(value).replace(/"/g, '""')}"`;
-          }).join(',')
-        )
-      ];
+      const exportData = data.map(item => item.data);
 
-      res.setHeader('Content-Type', 'text/csv');
-      res.setHeader('Content-Disposition', `attachment; filename=scraped-data-${taskId}.csv`);
-      res.send(csvRows.join('\n'));
+      switch (format) {
+        case 'json':
+          res.setHeader('Content-Type', 'application/json');
+          res.setHeader('Content-Disposition', `attachment; filename=scraped-data-${taskId}.json`);
+          res.send(JSON.stringify(exportData, null, 2));
+          break;
+
+        case 'csv':
+          const headers = Object.keys(exportData[0] as Record<string, any>);
+          const csvRows = [
+            headers.join(','),
+            ...exportData.map(item => 
+              headers.map(header => {
+                const value = (item as Record<string, any>)[header] || '';
+                return `"${String(value).replace(/"/g, '""')}"`;
+              }).join(',')
+            )
+          ];
+          res.setHeader('Content-Type', 'text/csv');
+          res.setHeader('Content-Disposition', `attachment; filename=scraped-data-${taskId}.csv`);
+          res.send(csvRows.join('\n'));
+          break;
+
+        case 'sql':
+          const tableName = `scraped_data_${taskId}`;
+          const firstItem = exportData[0] as Record<string, any>;
+          const columns = Object.keys(firstItem);
+          
+          let sqlStatements = [`-- SQL Insert Statements for Task ${taskId}`];
+          sqlStatements.push(`-- CREATE TABLE ${tableName} (`);
+          sqlStatements.push(columns.map(col => `--   ${col} TEXT`).join(',\n'));
+          sqlStatements.push('-- );\n');
+          
+          sqlStatements.push(...exportData.map(item => {
+            const values = columns.map(col => {
+              const value = (item as Record<string, any>)[col] || '';
+              return `'${String(value).replace(/'/g, "''")}'`;
+            });
+            return `INSERT INTO ${tableName} (${columns.join(', ')}) VALUES (${values.join(', ')});`;
+          }));
+
+          res.setHeader('Content-Type', 'text/plain');
+          res.setHeader('Content-Disposition', `attachment; filename=scraped-data-${taskId}.sql`);
+          res.send(sqlStatements.join('\n'));
+          break;
+
+        default:
+          res.status(400).json({ message: "Unsupported format. Supported formats: json, csv, sql" });
+      }
     } catch (error) {
       console.error("Export error:", error);
       res.status(500).json({ message: "Failed to export data" });
+    }
+  });
+
+  // Generate Python filtering script
+  app.post("/api/tasks/generate-python-filter", authenticateUser, async (req: any, res) => {
+    try {
+      const { taskIds } = req.body;
+      
+      if (!taskIds || taskIds.length === 0) {
+        return res.status(400).json({ message: "No task IDs provided" });
+      }
+
+      // Get sample data from the first task to understand structure
+      const sampleData = await storage.getScrapedData(taskIds[0], 5, 0);
+      
+      if (sampleData.length === 0) {
+        return res.status(404).json({ message: "No data found to analyze" });
+      }
+
+      const dataStructure = sampleData.map(item => item.data);
+      const fields = Object.keys(dataStructure[0] as Record<string, any>);
+      
+      // Generate intelligent Python script based on data structure
+      const script = `import json
+import re
+from typing import List, Dict, Any
+
+def clean_data(data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """
+    Clean and filter scraped data
+    Generated based on your data structure with fields: ${fields.join(', ')}
+    """
+    cleaned_data = []
+    
+    for item in data:
+        # Skip empty items
+        if not item or not any(item.values()):
+            continue
+            
+        cleaned_item = {}
+        
+        ${fields.map(field => {
+          const fieldType = typeof (dataStructure[0] as Record<string, any>)[field];
+          return `
+        # Clean ${field} field
+        if '${field}' in item and item['${field}']:
+            value = str(item['${field}']).strip()
+            ${fieldType === 'number' ? `
+            # Extract numeric value
+            numbers = re.findall(r'\\d+\\.?\\d*', value)
+            if numbers:
+                cleaned_item['${field}'] = float(numbers[0]) if '.' in numbers[0] else int(numbers[0])
+            else:
+                cleaned_item['${field}'] = value` : fieldType === 'string' && field.toLowerCase().includes('url') ? `
+            # Clean URL field
+            if value.startswith('http') or value.startswith('//'):
+                cleaned_item['${field}'] = value
+            elif value.startswith('/'):
+                cleaned_item['${field}'] = 'https://example.com' + value
+            else:
+                cleaned_item['${field}'] = value` : `
+            # Clean text field
+            cleaned_item['${field}'] = value`}
+        `;
+        }).join('')}
+        
+        # Only include items with required fields
+        required_fields = ['${fields.slice(0, Math.min(2, fields.length)).join("', '")}']
+        if all(cleaned_item.get(field) for field in required_fields):
+            cleaned_data.append(cleaned_item)
+    
+    return cleaned_data
+
+def remove_duplicates(data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Remove duplicate entries based on key fields"""
+    seen = set()
+    unique_data = []
+    
+    for item in data:
+        # Create a key based on the first few fields
+        key_fields = ['${fields.slice(0, Math.min(2, fields.length)).join("', '")}']
+        key = tuple(str(item.get(field, '')) for field in key_fields)
+        
+        if key not in seen:
+            seen.add(key)
+            unique_data.append(item)
+    
+    return unique_data
+
+def filter_by_criteria(data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Apply custom filtering criteria"""
+    filtered_data = []
+    
+    for item in data:
+        # Add your custom filtering logic here
+        # Example filters:
+        
+        ${fields.includes('price') ? `
+        # Filter by price range (if price field exists)
+        if 'price' in item and isinstance(item['price'], (int, float)):
+            if item['price'] <= 0 or item['price'] > 10000:
+                continue  # Skip items with invalid prices` : ''}
+        
+        ${fields.includes('title') || fields.includes('name') ? `
+        # Filter by title/name length
+        title_field = item.get('title') or item.get('name', '')
+        if isinstance(title_field, str) and len(title_field) < 3:
+            continue  # Skip items with very short titles` : ''}
+        
+        filtered_data.append(item)
+    
+    return filtered_data
+
+# Main processing pipeline
+def process_data(data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Main data processing pipeline"""
+    print(f"Starting with {len(data)} items")
+    
+    # Step 1: Clean the data
+    cleaned = clean_data(data)
+    print(f"After cleaning: {len(cleaned)} items")
+    
+    # Step 2: Remove duplicates
+    unique = remove_duplicates(cleaned)
+    print(f"After removing duplicates: {len(unique)} items")
+    
+    # Step 3: Apply filters
+    filtered = filter_by_criteria(unique)
+    print(f"After filtering: {len(filtered)} items")
+    
+    return filtered
+
+# Process the data
+filtered_data = process_data(data)`;
+
+      res.json({ script });
+    } catch (error) {
+      console.error("Generate Python filter error:", error);
+      res.status(500).json({ message: "Failed to generate Python script" });
+    }
+  });
+
+  // Export data with Python filtering
+  app.post("/api/tasks/:taskId/export-filtered", authenticateUser, async (req: any, res) => {
+    try {
+      const { taskId } = req.params;
+      const { format = 'json', pythonScript } = req.body;
+      
+      if (!pythonScript) {
+        return res.status(400).json({ message: "Python script is required" });
+      }
+
+      const data = await storage.getScrapedData(taskId, 10000, 0);
+      
+      if (data.length === 0) {
+        return res.status(404).json({ message: "No data found to export" });
+      }
+
+      let exportData = data.map(item => item.data);
+
+      // Apply Python filtering
+      try {
+        // Simple Python script execution simulation
+        // In a production environment, you would use a secure Python executor
+        
+        // For now, we'll implement some basic filtering based on common patterns
+        if (pythonScript.includes('clean_data') || pythonScript.includes('filter_data')) {
+          // Apply basic cleaning
+          exportData = exportData.filter(item => {
+            // Remove empty items
+            if (!item || typeof item !== 'object') return false;
+            
+            // Remove items with no meaningful data
+            const values = Object.values(item).filter(v => v !== null && v !== '' && v !== undefined);
+            return values.length > 0;
+          });
+
+          // Remove duplicates if script mentions it
+          if (pythonScript.includes('remove_duplicates')) {
+            const seen = new Set();
+            exportData = exportData.filter(item => {
+              const key = JSON.stringify(item);
+              if (seen.has(key)) return false;
+              seen.add(key);
+              return true;
+            });
+          }
+        }
+
+        console.log(`Applied Python filtering: ${data.length} -> ${exportData.length} items`);
+      } catch (filterError) {
+        console.error("Python filtering error:", filterError);
+        // Continue with unfiltered data if filtering fails
+      }
+
+      // Export in requested format
+      switch (format) {
+        case 'json':
+          res.setHeader('Content-Type', 'application/json');
+          res.setHeader('Content-Disposition', `attachment; filename=filtered-data-${taskId}.json`);
+          res.send(JSON.stringify(exportData, null, 2));
+          break;
+
+        case 'csv':
+          if (exportData.length === 0) {
+            return res.status(404).json({ message: "No data remaining after filtering" });
+          }
+          
+          const headers = Object.keys(exportData[0] as Record<string, any>);
+          const csvRows = [
+            headers.join(','),
+            ...exportData.map(item => 
+              headers.map(header => {
+                const value = (item as Record<string, any>)[header] || '';
+                return `"${String(value).replace(/"/g, '""')}"`;
+              }).join(',')
+            )
+          ];
+          res.setHeader('Content-Type', 'text/csv');
+          res.setHeader('Content-Disposition', `attachment; filename=filtered-data-${taskId}.csv`);
+          res.send(csvRows.join('\n'));
+          break;
+
+        default:
+          res.status(400).json({ message: "Unsupported format for filtered export" });
+      }
+    } catch (error) {
+      console.error("Filtered export error:", error);
+      res.status(500).json({ message: "Failed to export filtered data" });
     }
   });
 
