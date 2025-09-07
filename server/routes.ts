@@ -359,6 +359,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           strategy: analysis.strategy,
           userId: req.user.id,
           status: 'pending',
+          progress: 0,
+          totalItems: 0,
+          scrapedItems: 0,
           createdAt: new Date(),
           updatedAt: new Date()
         });
@@ -490,6 +493,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
               strategy: analysis.strategy,
               userId: req.user.id,
               status: 'pending',
+              progress: 0,
+              totalItems: 0,
+              scrapedItems: 0,
               createdAt: new Date(),
               updatedAt: new Date()
             });

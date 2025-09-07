@@ -11,6 +11,8 @@ import ActiveTasksPage from "@/pages/active-tasks";
 import CodeGeneratorPage from "@/pages/code-generator";
 import DataExportPage from "@/pages/data-export";
 import ApiKeysPage from "@/pages/api-keys";
+import AnalyticsPage from "@/pages/analytics";
+import AnalyticsMonitorPage from "@/pages/analytics-monitor";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -25,6 +27,8 @@ function Router() {
       <Route path="/code" component={CodeGeneratorPage} />
       <Route path="/data" component={DataExportPage} />
       <Route path="/api-keys" component={ApiKeysPage} />
+      <Route path="/analytics" component={AnalyticsPage} />
+      <Route path="/analytics/monitor" component={AnalyticsMonitorPage} />
       <Route component={NotFound} />
     </Switch>
   );

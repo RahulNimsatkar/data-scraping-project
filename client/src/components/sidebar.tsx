@@ -11,7 +11,8 @@ import {
   TrendingUp,
   Settings,
   User,
-  Activity
+  Activity,
+  Monitor
 } from "lucide-react";
 
 const navigationItems = [
@@ -23,6 +24,7 @@ const navigationItems = [
   { icon: Code, label: "Code Generator", href: "/code" },
   { icon: Key, label: "API Keys", href: "/api-keys" },
   { icon: TrendingUp, label: "Analytics", href: "/analytics" },
+  { icon: Monitor, label: "Task Monitor", href: "/analytics/monitor" },
 ];
 
 export function Sidebar() {
