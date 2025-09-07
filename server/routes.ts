@@ -5,9 +5,10 @@ import { storage } from "./storage";
 import { analyzeWebsiteStructure, generateScrapingCode } from "./services/openai";
 import { performEnhancedWebsiteAnalysis, generateAdvancedScrapingCode } from "./services/enhanced-ai-analysis";
 import { advancedScraperService } from "./services/advanced-scraper";
+import { testOpenAIKey } from "./services/openai";
 import { addScrapingJob } from "./services/queue";
 import { scraperService } from "./services/scraper";
-import { scrapingTaskSchema, scrapedDataSchema, websiteAnalysisSchema } from "@shared/schema";
+import { scrapingTaskSchema, scrapedDataSchema, websiteAnalysisSchema, aiProviderKeySchema } from "@shared/schema";
 import crypto from "crypto";
 import puppeteer from 'puppeteer';
 
@@ -968,6 +969,129 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       console.error("Stop advanced task error:", error);
       res.status(500).json({ message: `Failed to stop advanced scraping task: ${errorMessage}` });
+    }
+  });
+
+  // ===== AI PROVIDER KEY MANAGEMENT ROUTES =====
+
+  // Get user's AI provider keys
+  app.get("/api/ai-keys", authenticateUser, async (req: any, res) => {
+    try {
+      const keys = await storage.getAiProviderKeys(req.user.id);
+      // Don't send the actual API key, just metadata
+      const safeKeys = keys.map(key => ({
+        ...key,
+        apiKey: key.apiKey ? key.apiKey.substring(0, 8) + '...' + key.apiKey.slice(-4) : ''
+      }));
+      res.json(safeKeys);
+    } catch (error) {
+      console.error("Get AI keys error:", error);
+      res.status(500).json({ message: "Failed to fetch AI provider keys" });
+    }
+  });
+
+  // Create new AI provider key
+  app.post("/api/ai-keys", authenticateUser, async (req: any, res) => {
+    try {
+      const { provider, name, apiKey } = req.body;
+      
+      if (!provider || !name || !apiKey) {
+        return res.status(400).json({ message: "Provider, name, and API key are required" });
+      }
+
+      const validatedKey = aiProviderKeySchema.parse({
+        userId: req.user.id,
+        provider,
+        name,
+        apiKey,
+        isActive: true,
+        usageCount: 0,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      });
+
+      const savedKey = await storage.createAiProviderKey(validatedKey);
+      
+      // Don't return the actual API key
+      const safeKey = {
+        ...savedKey,
+        apiKey: savedKey.apiKey.substring(0, 8) + '...' + savedKey.apiKey.slice(-4)
+      };
+
+      res.json(safeKey);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error("Create AI key error:", error);
+      res.status(500).json({ message: `Failed to create AI provider key: ${errorMessage}` });
+    }
+  });
+
+  // Delete AI provider key
+  app.delete("/api/ai-keys/:keyId", authenticateUser, async (req: any, res) => {
+    try {
+      const { keyId } = req.params;
+      await storage.deleteAiProviderKey(keyId);
+      res.json({ message: "AI provider key deleted successfully" });
+    } catch (error) {
+      console.error("Delete AI key error:", error);
+      res.status(500).json({ message: "Failed to delete AI provider key" });
+    }
+  });
+
+  // Test AI provider key
+  app.post("/api/ai-keys/test/:keyId", authenticateUser, async (req: any, res) => {
+    try {
+      const { keyId } = req.params;
+      
+      const key = await storage.getAiProviderKeys(req.user.id);
+      const targetKey = key.find(k => k.id === keyId);
+      
+      if (!targetKey) {
+        return res.status(404).json({ message: "API key not found" });
+      }
+
+      let testResult;
+      
+      // Test based on provider type
+      switch (targetKey.provider) {
+        case 'openai':
+          testResult = await testOpenAIKey(targetKey.apiKey);
+          break;
+        case 'gemini':
+        case 'claude':
+        case 'cohere':
+        case 'huggingface':
+          // For now, just validate the key format for other providers
+          const isValidFormat = targetKey.apiKey && targetKey.apiKey.length > 10;
+          testResult = {
+            success: isValidFormat,
+            message: isValidFormat ? 
+              `${targetKey.provider} API key format appears valid` : 
+              `Invalid ${targetKey.provider} API key format`,
+            provider: targetKey.provider
+          };
+          break;
+        default:
+          testResult = { success: false, message: "Unsupported provider", provider: targetKey.provider };
+      }
+
+      // Update last used if test was successful
+      if (testResult.success) {
+        await storage.updateAiProviderKey(keyId, {
+          lastUsed: new Date(),
+          usageCount: targetKey.usageCount + 1
+        });
+      }
+
+      res.json(testResult);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error("Test AI key error:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: `Failed to test API key: ${errorMessage}`,
+        provider: 'unknown'
+      });
     }
   });
 
