@@ -69,8 +69,8 @@ export function DataTable() {
   const sortedData = [...filteredData].sort((a, b) => {
     if (!sortField) return 0;
     
-    let aValue = a.data[sortField] || a[sortField] || '';
-    let bValue = b.data[sortField] || b[sortField] || '';
+    let aValue = a.data[sortField] || (a as any)[sortField] || '';
+    let bValue = b.data[sortField] || (b as any)[sortField] || '';
     
     // Handle date sorting
     if (sortField === 'scrapedAt') {
