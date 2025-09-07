@@ -137,22 +137,23 @@ Return JSON in this exact format:
       console.log('OpenAI quota exceeded, using fallback analysis');
       return {
         selectors: {
-          primary: ".post, .listing, .item, .card, article",
-          fallback: [".content", ".entry", ".product", ".hoarding"]
+          primary: "[data-component-type='s-search-result'], .s-result-item, .a-section, [data-asin], .product-item, .post, .listing, .item, .card, article",
+          fallback: ".s-main-slot, .s-search-results, .product-grid, .content, .entry, .product, .hoarding"
         },
         patterns: {
-          itemContainer: ".post, .listing, .item",
+          itemContainer: "[data-component-type='s-search-result'], .s-result-item, .post, .listing, .item",
           pagination: true,
           infiniteScroll: false,
-          ajaxLoading: false
+          ajaxLoading: true
         },
-        strategy: "Standard content extraction with pagination support. Focus on main content areas and listing containers.",
-        confidence: 75,
+        strategy: "E-commerce content extraction with support for dynamic loading and pagination. Focus on product listings and structured data containers.",
+        confidence: 80,
         recommendations: [
-          "Use rate limiting between requests",
-          "Handle pagination with proper delays",
-          "Extract structured data from list items",
-          "Consider using CSS selectors for reliable targeting"
+          "Use rate limiting between requests (2-3 seconds)",
+          "Handle dynamic content loading with proper wait times",
+          "Extract product data from ASIN-based containers",
+          "Monitor for anti-bot measures and adapt accordingly",
+          "Use proper user-agent headers for better compatibility"
         ]
       };
     }
