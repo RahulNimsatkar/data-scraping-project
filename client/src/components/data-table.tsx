@@ -222,49 +222,47 @@ export function DataTable() {
             No scraped data available. Start a scraping task to see results here.
           </div>
         ) : viewMode === 'json' ? (
-          <div className="p-4 space-y-4 max-h-[600px] overflow-y-auto">
+          <div className="p-3 space-y-2 max-h-[400px] overflow-y-auto">
             {currentData.map((item, index) => (
-              <div key={item.id} className="border border-border rounded-lg p-4 bg-muted/10 hover:bg-muted/20 transition-colors" data-testid={`json-item-${item.id}`}>
-                <div className="flex justify-between items-start mb-3">
+              <div key={item.id} className="border border-border rounded p-2 bg-muted/5 hover:bg-muted/10 transition-colors" data-testid={`json-item-${item.id}`}>
+                <div className="flex justify-between items-center mb-2">
                   <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="text-xs">
-                      Item #{startIndex + index + 1}
+                    <Badge variant="outline" className="text-xs py-0 px-1 h-5">
+                      #{startIndex + index + 1}
                     </Badge>
-                    <Badge variant="secondary" className="text-xs">
-                      ID: {item.id.slice(-6)}
-                    </Badge>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground">
-                      {formatDate(item.scrapedAt)}
+                    <span className="text-xs text-muted-foreground font-medium">
+                      {item.data.title || item.data.name || "No title"}
                     </span>
-                    <div className="flex items-center gap-1">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleEdit(item)}
-                        className="text-muted-foreground hover:text-foreground h-6 w-6 p-0"
-                        data-testid={`button-edit-json-${item.id}`}
-                      >
-                        <Edit className="w-3 h-3" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => deleteMutation.mutate(item.id)}
-                        disabled={deleteMutation.isPending}
-                        className="text-muted-foreground hover:text-destructive h-6 w-6 p-0"
-                        data-testid={`button-delete-json-${item.id}`}
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </Button>
-                    </div>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs text-muted-foreground">
+                      {new Date(item.scrapedAt).toLocaleTimeString()}
+                    </span>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => handleEdit(item)}
+                      className="text-muted-foreground hover:text-foreground h-5 w-5 p-0"
+                      data-testid={`button-edit-json-${item.id}`}
+                    >
+                      <Edit className="w-3 h-3" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => deleteMutation.mutate(item.id)}
+                      disabled={deleteMutation.isPending}
+                      className="text-muted-foreground hover:text-destructive h-5 w-5 p-0"
+                      data-testid={`button-delete-json-${item.id}`}
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </Button>
                   </div>
                 </div>
                 
                 {editingId === item.id ? (
-                  <div className="space-y-3">
-                    <div className="p-3 bg-background border border-border rounded text-xs font-mono overflow-x-auto">
+                  <div className="space-y-2">
+                    <div className="p-2 bg-background border border-border rounded text-xs font-mono overflow-x-auto max-h-32">
                       <pre>{JSON.stringify(editData, null, 2)}</pre>
                     </div>
                     <div className="flex items-center gap-2">
@@ -272,14 +270,16 @@ export function DataTable() {
                         size="sm"
                         onClick={handleSave}
                         disabled={updateMutation.isPending}
+                        className="h-6 px-2 text-xs"
                         data-testid={`button-save-json-${item.id}`}
                       >
-                        Save Changes
+                        Save
                       </Button>
                       <Button
                         size="sm"
                         variant="ghost"
                         onClick={handleCancel}
+                        className="h-6 px-2 text-xs"
                         data-testid={`button-cancel-json-${item.id}`}
                       >
                         Cancel
@@ -287,22 +287,8 @@ export function DataTable() {
                     </div>
                   </div>
                 ) : (
-                  <div className="space-y-2">
-                    <div className="p-3 bg-background border border-border rounded text-xs font-mono overflow-x-auto">
-                      <pre className="text-foreground">{JSON.stringify(item.data, null, 2)}</pre>
-                    </div>
-                    <div className="flex items-center justify-between text-xs text-muted-foreground">
-                      <span>Source: {new URL(item.url).hostname}</span>
-                      <a
-                        href={item.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-primary hover:underline flex items-center gap-1"
-                        data-testid={`link-json-url-${item.id}`}
-                      >
-                        View Original <ExternalLink className="w-3 h-3" />
-                      </a>
-                    </div>
+                  <div className="p-2 bg-background border border-border rounded text-xs font-mono overflow-x-auto max-h-24">
+                    <pre className="text-foreground leading-tight">{JSON.stringify(item.data, null, 2)}</pre>
                   </div>
                 )}
               </div>
@@ -431,68 +417,37 @@ export function DataTable() {
         )}
         
         {totalItems > 0 && (
-          <div className="p-4 border-t border-border bg-muted/30">
+          <div className="px-3 py-2 border-t border-border bg-muted/20">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <span className="text-sm text-muted-foreground" data-testid="text-pagination-info">
-                  Showing <span className="font-medium text-foreground">{startIndex + 1}-{endIndex}</span> of <span className="font-medium text-foreground">{totalItems}</span> items
-                </span>
-                <Badge variant="outline" className="text-xs">
-                  Page {currentPage} of {totalPages}
-                </Badge>
-              </div>
+              <span className="text-xs text-muted-foreground" data-testid="text-pagination-info">
+                <span className="font-medium text-foreground">{startIndex + 1}-{endIndex}</span> of <span className="font-medium text-foreground">{totalItems}</span>
+              </span>
               
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1">
                 <Button 
                   variant="outline" 
                   size="sm" 
                   disabled={currentPage === 1}
                   onClick={handlePreviousPage}
-                  className="text-xs"
+                  className="h-6 px-2 text-xs"
                   data-testid="button-previous-page"
                 >
-                  <ChevronLeft className="w-3 h-3 mr-1" />
-                  Previous
+                  <ChevronLeft className="w-3 h-3" />
                 </Button>
                 
-                <div className="flex items-center gap-1">
-                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                    let pageNum = i + 1;
-                    if (totalPages > 5) {
-                      if (currentPage <= 3) {
-                        pageNum = i + 1;
-                      } else if (currentPage >= totalPages - 2) {
-                        pageNum = totalPages - 4 + i;
-                      } else {
-                        pageNum = currentPage - 2 + i;
-                      }
-                    }
-                    
-                    return (
-                      <Button
-                        key={pageNum}
-                        variant={currentPage === pageNum ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setCurrentPage(pageNum)}
-                        className="w-8 h-8 p-0 text-xs"
-                        data-testid={`button-page-${pageNum}`}
-                      >
-                        {pageNum}
-                      </Button>
-                    );
-                  })}
-                </div>
+                <span className="text-xs text-muted-foreground px-2">
+                  {currentPage}/{totalPages}
+                </span>
                 
                 <Button 
                   variant="outline" 
                   size="sm" 
                   disabled={currentPage === totalPages}
                   onClick={handleNextPage}
-                  className="text-xs"
+                  className="h-6 px-2 text-xs"
                   data-testid="button-next-page"
                 >
-                  Next
-                  <ChevronRight className="w-3 h-3 ml-1" />
+                  <ChevronRight className="w-3 h-3" />
                 </Button>
               </div>
             </div>
