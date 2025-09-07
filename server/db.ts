@@ -6,10 +6,19 @@ let client: MongoClient | null = null;
 let _db: Db | null = null; // Declare a variable to hold the connected database instance
 
 export async function connectToDatabase() {
+  // Skip MongoDB connection if no MONGO_URL is provided
+  if (!process.env.MONGO_URL) {
+    console.log("No MONGO_URL provided, using in-memory storage for development");
+    return null;
+  }
+
   // Attempt MongoDB connection with the provided URI
   try {
     console.log("Connecting to MongoDB with provided connection string...");
-    client = new MongoClient(uri);
+    client = new MongoClient(uri, {
+      serverSelectionTimeoutMS: 5000, // 5 second timeout
+      connectTimeoutMS: 5000,
+    });
     await client.connect();
     _db = client.db(); // Assign the connected database instance
     console.log("Successfully connected to MongoDB!");
