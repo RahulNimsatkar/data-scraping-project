@@ -179,7 +179,8 @@ Focus on:
   } catch (error) {
     console.error("Enhanced AI analysis error:", error);
     
-    // Intelligent fallback analysis
+    // Intelligent fallback analysis when no API key or analysis fails
+    console.log('Using intelligent fallback analysis due to:', error instanceof Error ? error.message : 'unknown error');
     return generateIntelligentFallbackAnalysis(url, htmlContent);
   }
 }

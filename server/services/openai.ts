@@ -132,8 +132,8 @@ Return JSON in this exact format:
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error("OpenAI analysis error:", error);
     
-    // Fallback response when OpenAI is not available
-    if (errorMessage.includes('quota') || errorMessage.includes('429')) {
+    // Fallback response when OpenAI is not available or no API key
+    if (errorMessage.includes('quota') || errorMessage.includes('429') || errorMessage.includes('invalid_api_key') || errorMessage.includes('Incorrect API key')) {
       console.log('OpenAI quota exceeded, using fallback analysis');
       return {
         selectors: {
@@ -205,8 +205,8 @@ Return only the code without markdown formatting.`;
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error("Code generation error:", error);
     
-    // Fallback code when OpenAI is not available
-    if (errorMessage.includes('quota') || errorMessage.includes('429')) {
+    // Fallback code when OpenAI is not available or no API key
+    if (errorMessage.includes('quota') || errorMessage.includes('429') || errorMessage.includes('invalid_api_key') || errorMessage.includes('Incorrect API key')) {
       console.log('OpenAI quota exceeded, using fallback code generation');
       
       const fallbackCode = language === 'python' ? 

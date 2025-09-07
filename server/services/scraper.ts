@@ -88,12 +88,23 @@ export class ScraperService {
           }
         }
         
-        // If still no items, try common selectors for hoarding/listing websites
+        // If still no items, try comprehensive common selectors for various website types
         if (items.length === 0) {
           const genericSelectors = [
-            'div[class*="listing"]', 'div[class*="item"]', 'div[class*="product"]',
-            'div[class*="card"]', 'div[class*="hoarding"]', 'div[class*="content"]',
-            'article', '.entry', '.post', 'div.row > div', 'section > div'
+            // E-commerce and product pages
+            'div[class*="product"]', 'div[class*="item"]', 'div[class*="listing"]',
+            'div[class*="card"]', 'div[class*="tile"]', 'div[class*="box"]',
+            
+            // Content and blog pages
+            'article', '.post', '.entry', '.content', '.blog-post',
+            'div[class*="post"]', 'div[class*="article"]', 'div[class*="content"]',
+            
+            // Real estate and classified ads
+            'div[class*="hoarding"]', 'div[class*="property"]', 'div[class*="ad"]',
+            
+            // General layout containers
+            'div.row > div', 'section > div', '.container > div', '.main > div',
+            'li', 'tr', 'div[id*="item"]', 'div[data-*]'
           ];
           
           for (const selector of genericSelectors) {
@@ -200,13 +211,19 @@ export class ScraperService {
   private extractItemData($: cheerio.CheerioAPI, item: cheerio.Cheerio<any>, selectors: any): any {
     const data: any = {};
 
-    // Extract based on common patterns
+    // Extract based on comprehensive patterns
     try {
-      // Title/Name - more comprehensive search
-      const titleSelectors = ['.title', '.name', '.product-title', 'h1', 'h2', 'h3', 'h4', '[class*="title"]', '[class*="name"]'];
+      // Title/Name - extensive search with priority order
+      const titleSelectors = [
+        'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+        '.title', '.name', '.heading', '.product-title', '.item-title',
+        '[class*="title"]', '[class*="name"]', '[class*="heading"]',
+        'a[title]', 'strong', 'b', '.lead', '.main-text'
+      ];
+      
       for (const sel of titleSelectors) {
         const title = item.find(sel).first().text().trim();
-        if (title && title.length > 3) {
+        if (title && title.length > 2 && title.length < 200) {
           data.title = title;
           break;
         }
