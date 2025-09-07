@@ -28,21 +28,17 @@ interface AnalysisResult {
 export function AIAnalysisPanel() {
   const [url, setUrl] = useState("");
   const [prompt, setPrompt] = useState("");
-  const [lastAnalyzedUrl, setLastAnalyzedUrl] = useState("");
+  const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const { toast } = useToast();
-
-  const { data: analysis, isLoading } = useQuery<AnalysisResult>({
-    queryKey: ["/api/analyze", lastAnalyzedUrl],
-    enabled: !!lastAnalyzedUrl,
-  });
 
   const analyzeMutation = useMutation({
     mutationFn: async ({ url, prompt }: { url: string; prompt?: string }) => {
       const response = await apiRequest("POST", "/api/analyze", { url, prompt });
       return response.json();
     },
-    onSuccess: () => {
-      setLastAnalyzedUrl(url);
+    onSuccess: (data) => {
+      // Store the analysis result in state to enable the Create Task button
+      setAnalysis(data);
       toast({
         title: "Analysis Complete",
         description: "Website structure analysis completed successfully.",
@@ -147,7 +143,7 @@ export function AIAnalysisPanel() {
         </div>
         
         {/* Analysis Results */}
-        {isLoading && (
+        {analyzeMutation.isPending && (
           <div className="space-y-4">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
