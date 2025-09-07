@@ -78,6 +78,25 @@ export const aiProviderKeySchema = z.object({
   updatedAt: z.date().default(() => new Date()),
 });
 
+// Database Connection Schema
+export const databaseConnectionSchema = z.object({
+  id: z.string().optional(),
+  userId: z.string().optional(),
+  name: z.string().min(1, "Database name is required"),
+  type: z.enum(["mongodb", "postgresql", "mysql"]),
+  url: z.string().min(1, "Database URL is required"),
+  username: z.string().optional(),
+  password: z.string().optional(),
+  database: z.string().optional(),
+  isActive: z.boolean().default(true),
+  isDefault: z.boolean().default(false),
+  lastConnected: z.date().optional(),
+  status: z.enum(["connected", "disconnected", "error"]).default("disconnected"),
+  errorMessage: z.string().optional(),
+  createdAt: z.date().default(() => new Date()),
+  updatedAt: z.date().default(() => new Date()),
+});
+
 // Types
 export type User = z.infer<typeof userSchema>;
 export type ApiKey = z.infer<typeof apiKeySchema>;
@@ -86,3 +105,4 @@ export type ScrapedData = z.infer<typeof scrapedDataSchema>;
 export type WebsiteAnalysis = z.infer<typeof websiteAnalysisSchema>;
 export type TaskLog = z.infer<typeof taskLogSchema>;
 export type AiProviderKey = z.infer<typeof aiProviderKeySchema>;
+export type DatabaseConnection = z.infer<typeof databaseConnectionSchema>;

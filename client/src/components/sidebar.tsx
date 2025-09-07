@@ -12,7 +12,8 @@ import {
   Settings,
   User,
   Activity,
-  Monitor
+  Monitor,
+  Server
 } from "lucide-react";
 
 const navigationItems = [
@@ -23,6 +24,7 @@ const navigationItems = [
   { icon: Database, label: "Data Export", href: "/data" },
   { icon: Code, label: "Code Generator", href: "/code" },
   { icon: Key, label: "API Keys", href: "/api-keys" },
+  { icon: Server, label: "Databases", href: "/databases" },
   { icon: TrendingUp, label: "Analytics", href: "/analytics" },
   { icon: Monitor, label: "Task Monitor", href: "/analytics/monitor" },
 ];
