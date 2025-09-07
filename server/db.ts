@@ -1,25 +1,26 @@
 import { MongoClient, Db } from 'mongodb'; // Import MongoClient and Db type
 
-if (!process.env.DATABASE_URL) {
-  throw new Error(
-    "DATABASE_URL must be set. Did you forget to provision a database?",
-  );
-}
-
+// Check if we have a MongoDB connection string
 const uri = process.env.DATABASE_URL;
-const client = new MongoClient(uri);
-let _db: Db; // Declare a variable to hold the connected database instance
+let client: MongoClient | null = null;
+let _db: Db | null = null; // Declare a variable to hold the connected database instance
 
 export async function connectToDatabase() {
-  try {
-    await client.connect();
-    _db = client.db(); // Assign the connected database instance
-    console.log("Connected to MongoDB!");
-    return _db;
-  } catch (e) {
-    console.error("Failed to connect to MongoDB, falling back to in-memory storage", e);
-    console.log("Application will run with in-memory storage for development");
-    // Don't throw error, let app continue with in-memory storage
+  // Only attempt MongoDB connection if we have a MongoDB URI
+  if (uri && (uri.startsWith('mongodb://') || uri.startsWith('mongodb+srv://'))) {
+    try {
+      client = new MongoClient(uri);
+      await client.connect();
+      _db = client.db(); // Assign the connected database instance
+      console.log("Connected to MongoDB!");
+      return _db;
+    } catch (e) {
+      console.error("Failed to connect to MongoDB, falling back to in-memory storage", e);
+      console.log("Application will run with in-memory storage for development");
+      return null;
+    }
+  } else {
+    console.log("No MongoDB connection string found, using in-memory storage for development");
     return null;
   }
 }
