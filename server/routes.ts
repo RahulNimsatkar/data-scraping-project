@@ -108,10 +108,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Analyze with OpenAI
       const analysis = await analyzeWebsiteStructure(url, htmlContent, prompt, req.user.id);
       
-      // Store analysis
+      // Store analysis - transform selectors to match schema
+      const selectorsRecord: Record<string, string> = {
+        primary: analysis.selectors.primary,
+        fallback: Array.isArray(analysis.selectors.fallback) 
+          ? analysis.selectors.fallback.join(', ') 
+          : analysis.selectors.fallback
+      };
+
       const validatedAnalysis = websiteAnalysisSchema.parse({
         url,
-        selectors: analysis.selectors,
+        selectors: selectorsRecord,
         patterns: analysis.patterns,
         strategy: analysis.strategy,
         confidence: parseFloat(analysis.confidence.toString()) // Ensure confidence is a number

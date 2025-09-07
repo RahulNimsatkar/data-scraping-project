@@ -138,7 +138,7 @@ Return JSON in this exact format:
       return {
         selectors: {
           primary: "[data-component-type='s-search-result'], .s-result-item, .a-section, [data-asin], .product-item, .post, .listing, .item, .card, article",
-          fallback: ".s-main-slot, .s-search-results, .product-grid, .content, .entry, .product, .hoarding"
+          fallback: [".s-main-slot", ".s-search-results", ".product-grid", ".content", ".entry", ".product", ".hoarding"]
         },
         patterns: {
           itemContainer: "[data-component-type='s-search-result'], .s-result-item, .post, .listing, .item",
