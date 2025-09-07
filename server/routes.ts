@@ -136,44 +136,100 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Create new scraping task
+  // Create new scraping task with dynamic analysis
   app.post("/api/tasks", authenticateUser, async (req: any, res) => {
     try {
+      const { url, name, maxPages = 5, delay = 2000 } = req.body;
+      
+      if (!url) {
+        return res.status(400).json({ message: "URL is required" });
+      }
+
+      console.log(`Creating dynamic scraping task for: ${url}`);
+
+      // Step 1: Analyze website structure first
+      let htmlContent = '';
+      try {
+        const response = await fetch(url, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+          }
+        });
+        htmlContent = await response.text();
+      } catch (fetchError) {
+        console.error('Failed to fetch website for analysis:', fetchError);
+        return res.status(500).json({ message: "Failed to fetch website content for analysis" });
+      }
+
+      // Step 2: Perform dynamic analysis
+      const analysis = await analyzeWebsiteStructure(url, htmlContent, 
+        "Analyze this website for optimal data extraction. Focus on identifying the main content containers, product listings, articles, or data items.", req.user.id);
+
+      // Step 3: Convert analysis results to task selectors
+      const taskSelectors = {
+        primary: analysis.selectors.primary,
+        fallback: Array.isArray(analysis.selectors.fallback) 
+          ? analysis.selectors.fallback.join(', ') 
+          : analysis.selectors.fallback,
+        itemContainer: analysis.patterns.itemContainer
+      };
+
+      // Step 4: Create scraping task with analyzed selectors
       const validatedData = scrapingTaskSchema.parse({
-        ...req.body,
+        name: name || `Smart Scrape: ${new URL(url).hostname}`,
+        url,
+        selectors: taskSelectors,
+        strategy: analysis.strategy,
         userId: req.user.id,
+        status: 'pending',
+        progress: 0,
+        totalItems: 0,
+        scrapedItems: 0,
         createdAt: new Date(),
         updatedAt: new Date(),
       });
 
       const task = await storage.createScrapingTask(validatedData);
 
-      // Generate scraping code
+      // Step 5: Generate scraping code based on analysis
       const generatedCode = await generateScrapingCode(
         task.url,
-        task.selectors || {}, // Provide an empty object as fallback
-        task.strategy || "Standard web scraping",
+        taskSelectors,
+        analysis.strategy,
         'python',
         req.user.id
       );
 
       await storage.updateScrapingTask(task.id!, { generatedCode });
 
-      // Add to scraping queue
+      // Step 6: Start scraping with dynamic selectors
       await addScrapingJob({
         taskId: task.id!,
         url: task.url,
-        selectors: task.selectors || {}, // Provide an empty object as fallback
-        strategy: task.strategy ?? "Standard web scraping",
-        maxPages: 5,
-        delay: 2000
+        selectors: {
+          primary: analysis.selectors.primary,
+          fallback: analysis.selectors.fallback,
+          itemContainer: analysis.patterns.itemContainer
+        },
+        strategy: analysis.strategy,
+        maxPages: parseInt(maxPages),
+        delay: parseInt(delay)
       });
 
-      res.json({ ...task, generatedCode });
+      res.json({ 
+        ...task, 
+        generatedCode,
+        analysis: {
+          confidence: analysis.confidence,
+          strategy: analysis.strategy,
+          patterns: analysis.patterns,
+          recommendations: analysis.recommendations
+        }
+      });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      console.error("Create task error:", error);
-      res.status(500).json({ message: `Failed to create scraping task: ${errorMessage}` });
+      console.error("Create dynamic task error:", error);
+      res.status(500).json({ message: `Failed to create dynamic scraping task: ${errorMessage}` });
     }
   });
 
