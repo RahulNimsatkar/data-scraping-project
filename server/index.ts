@@ -1,5 +1,3 @@
-// Override database URL with MongoDB connection if provided
-process.env.DATABASE_URL = "mongodb+srv://animefluxmedia_db_user:gbx6HOMVgQqHtFqX@cluster0.rlettos.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
 import 'dotenv/config'; // Load environment variables
 import express from "express";
 import { type Request, type Response, type NextFunction } from "express";

@@ -1,7 +1,7 @@
 import { MongoClient, Db } from 'mongodb'; // Import MongoClient and Db type
 
-// Force MongoDB connection string
-const uri = "mongodb+srv://animefluxmedia_db_user:gbx6HOMVgQqHtFqX@cluster0.rlettos.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
+// Use MongoDB connection string from environment or provided default
+const uri = process.env.MONGO_URL || "mongodb+srv://animefluxmedia_db_user:gbx6HOMVgQqHtFqX@cluster0.rlettos.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
 let client: MongoClient | null = null;
 let _db: Db | null = null; // Declare a variable to hold the connected database instance
 
