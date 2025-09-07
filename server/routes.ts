@@ -102,7 +102,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       htmlContent = await response.text();
 
       // Analyze with OpenAI
-      const analysis = await analyzeWebsiteStructure(url, htmlContent, prompt);
+      const analysis = await analyzeWebsiteStructure(url, htmlContent, prompt, req.user.id);
       
       // Store analysis
       const validatedAnalysis = websiteAnalysisSchema.parse({
@@ -141,7 +141,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const generatedCode = await generateScrapingCode(
         task.url,
         task.selectors || {}, // Provide an empty object as fallback
-        task.strategy || "Standard web scraping"
+        task.strategy || "Standard web scraping",
+        'python',
+        req.user.id
       );
 
       await storage.updateScrapingTask(task.id!, { generatedCode });
@@ -336,7 +338,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Enhanced AI analysis with metrics
       const analysis = await analyzeWebsiteStructure(url, htmlContent, 
-        "Perform comprehensive analysis including data extraction patterns, API endpoints detection, and optimal scraping strategies");
+        "Perform comprehensive analysis including data extraction patterns, API endpoints detection, and optimal scraping strategies", req.user.id);
       
       // Store enhanced analysis with metrics
       const enhancedAnalysis = {
@@ -370,7 +372,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const generatedCode = await generateScrapingCode(
           url,
           analysis.selectors,
-          analysis.strategy
+          analysis.strategy,
+          'python',
+          req.user.id
         );
         await storage.updateScrapingTask(autoTask.id!, { generatedCode });
 
