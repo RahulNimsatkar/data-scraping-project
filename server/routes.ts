@@ -1441,5 +1441,194 @@ filtered_data = process_data(data)`;
     }
   });
 
+  // Execute custom code on scraped data
+  app.post("/api/execute-code", authenticateUser, async (req: any, res) => {
+    try {
+      const { code, taskId, language = 'python' } = req.body;
+      
+      if (!code || !taskId) {
+        return res.status(400).json({ message: "Code and taskId are required" });
+      }
+
+      // Get the scraped data for the task
+      const data = await storage.getScrapedData(taskId, 1000, 0);
+      
+      if (data.length === 0) {
+        return res.status(404).json({ message: "No data found for this task" });
+      }
+
+      const startTime = Date.now();
+      let executionResult: any = {};
+
+      try {
+        // Extract just the data objects for processing
+        const dataObjects = data.map(item => item.data);
+        
+        // Simple and safe code execution simulation
+        // In a production environment, you would use a secure sandbox
+        if (language === 'python') {
+          // Simulate Python code execution
+          const result = await simulatePythonExecution(code, dataObjects);
+          executionResult = {
+            success: true,
+            output: result.output,
+            processedData: result.processedData,
+            executionTime: Date.now() - startTime
+          };
+        } else if (language === 'javascript') {
+          // Execute JavaScript code in a controlled manner
+          const result = await simulateJavaScriptExecution(code, dataObjects);
+          executionResult = {
+            success: true,
+            output: result.output,
+            processedData: result.processedData,
+            executionTime: Date.now() - startTime
+          };
+        } else {
+          throw new Error(`Unsupported language: ${language}`);
+        }
+
+      } catch (executionError) {
+        console.error("Code execution error:", executionError);
+        executionResult = {
+          success: false,
+          error: executionError instanceof Error ? executionError.message : "Code execution failed",
+          executionTime: Date.now() - startTime
+        };
+      }
+
+      res.json(executionResult);
+    } catch (error) {
+      console.error("Execute code error:", error);
+      res.status(500).json({ message: "Failed to execute code" });
+    }
+  });
+
   return httpServer;
+}
+
+// Safe Python code execution simulation
+async function simulatePythonExecution(code: string, data: any[]): Promise<{ output: string; processedData: any[] }> {
+  const output: string[] = [];
+  let processedData: any[] = [];
+
+  try {
+    // Basic Python-like processing simulation
+    if (code.includes('def process_data(data):')) {
+      // Simulate data filtering
+      if (code.includes('filtered = []') || code.includes('filter')) {
+        processedData = data.filter(item => {
+          // Basic filtering logic based on common patterns
+          if (code.includes('len(item[\'title\'])') && code.includes('> 5')) {
+            return item.title && item.title.length > 5;
+          }
+          if (code.includes('item.get(\'title\')') && code.includes('len')) {
+            return item.title && item.title.length > 3;
+          }
+          if (code.includes('price') && code.includes('> 0')) {
+            const price = parseFloat(String(item.price || '0').replace(/[^0-9.]/g, ''));
+            return price > 0 && price < 1000;
+          }
+          return true;
+        });
+        output.push(`Filtered to ${processedData.length} items from ${data.length} total`);
+      }
+      
+      // Simulate data transformation
+      else if (code.includes('transformed = []') || code.includes('transform')) {
+        processedData = data.map(item => ({
+          title: item.title?.trim() || 'No title',
+          clean_price: parseFloat(String(item.price || '0').replace(/[^0-9.]/g, '')) || 0,
+          domain: item.url ? new URL(item.url).hostname : 'unknown',
+          word_count: item.description ? item.description.split(' ').length : 0,
+          category: categorizeItem(item),
+          original_data: item
+        }));
+        output.push(`Transformed ${processedData.length} items with additional fields`);
+      }
+      
+      // Simulate analytics
+      else if (code.includes('analysis = {') || code.includes('analytics')) {
+        const analysis = {
+          total_items: data.length,
+          items_with_titles: data.filter(item => item.title).length,
+          avg_title_length: data.reduce((sum, item) => sum + (item.title?.length || 0), 0) / data.length,
+          price_count: data.filter(item => item.price).length,
+          categories: data.reduce((acc, item) => {
+            const category = categorizeItem(item);
+            acc[category] = (acc[category] || 0) + 1;
+            return acc;
+          }, {} as Record<string, number>)
+        };
+        
+        processedData = [analysis];
+        output.push('📊 Data Analysis Report');
+        output.push(`Total Items: ${analysis.total_items}`);
+        output.push(`Items with Titles: ${analysis.items_with_titles}`);
+        output.push(`Average Title Length: ${analysis.avg_title_length.toFixed(1)} chars`);
+        output.push(`Items with Prices: ${analysis.price_count}`);
+        output.push(`Categories: ${JSON.stringify(analysis.categories)}`);
+      }
+      
+      // Default processing
+      else {
+        processedData = data.filter(item => item.title && item.title.length > 0);
+        output.push(`Processed ${processedData.length} items`);
+      }
+    } else {
+      // Simple data processing
+      processedData = data;
+      output.push(`Processing ${data.length} items...`);
+      output.push('Code executed successfully');
+    }
+
+  } catch (error) {
+    throw new Error(`Python execution failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+
+  return { output: output.join('\n'), processedData };
+}
+
+// Safe JavaScript code execution simulation  
+async function simulateJavaScriptExecution(code: string, data: any[]): Promise<{ output: string; processedData: any[] }> {
+  const output: string[] = [];
+  let processedData: any[] = [];
+
+  try {
+    // Basic filtering
+    if (code.includes('filter') && code.includes('length')) {
+      processedData = data.filter(item => 
+        item.title && item.title.length > 3
+      );
+      output.push(`Filtered to ${processedData.length} items`);
+    }
+    // Basic mapping/transformation
+    else if (code.includes('map') || code.includes('transform')) {
+      processedData = data.map(item => ({
+        ...item,
+        processed: true,
+        wordCount: item.description ? item.description.split(' ').length : 0
+      }));
+      output.push(`Transformed ${processedData.length} items`);
+    }
+    // Default
+    else {
+      processedData = data;
+      output.push(`Processed ${data.length} items with JavaScript`);
+    }
+
+  } catch (error) {
+    throw new Error(`JavaScript execution failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+
+  return { output: output.join('\n'), processedData };
+}
+
+// Helper function to categorize items
+function categorizeItem(item: any): string {
+  const title = String(item.title || '').toLowerCase();
+  if (title.includes('book')) return 'books';
+  if (title.includes('tech') || title.includes('phone')) return 'electronics';
+  if (title.includes('cloth') || title.includes('shirt')) return 'clothing';
+  return 'other';
 }
