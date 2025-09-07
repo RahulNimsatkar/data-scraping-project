@@ -5,12 +5,14 @@ import {
   scrapedDataSchema,
   websiteAnalysisSchema,
   taskLogSchema,
+  aiProviderKeySchema,
   User,
   ApiKey,
   ScrapingTask,
   ScrapedData,
   WebsiteAnalysis,
   TaskLog,
+  AiProviderKey,
 } from "@shared/schema";
 import { getDb, isDbConnected } from "./db";
 import { Collection, ObjectId } from "mongodb";
@@ -47,6 +49,13 @@ export interface IStorage {
   getTaskLogs(taskId: string): Promise<TaskLog[]>;
   createTaskLog(log: TaskLog): Promise<TaskLog>;
 
+  // AI Provider Keys
+  getAiProviderKeys(userId: string): Promise<AiProviderKey[]>;
+  getAiProviderKey(userId: string, provider: string): Promise<AiProviderKey | undefined>;
+  createAiProviderKey(key: AiProviderKey): Promise<AiProviderKey>;
+  updateAiProviderKey(id: string, updates: Partial<AiProviderKey>): Promise<AiProviderKey>;
+  deleteAiProviderKey(id: string): Promise<void>;
+
   // Statistics
   getUserStats(userId: string): Promise<{
     totalScraped: number;
@@ -64,6 +73,7 @@ export class InMemoryStorage implements IStorage {
   private scrapedData = new Map<string, ScrapedData>();
   private websiteAnalysis = new Map<string, WebsiteAnalysis>();
   private taskLogs = new Map<string, TaskLog>();
+  private aiProviderKeys = new Map<string, AiProviderKey>();
 
   private generateId(): string {
     return Math.random().toString(36).substr(2, 9);
@@ -188,6 +198,37 @@ export class InMemoryStorage implements IStorage {
     return validatedLog;
   }
 
+  async getAiProviderKeys(userId: string): Promise<AiProviderKey[]> {
+    const keys = Array.from(this.aiProviderKeys.values());
+    return keys.filter(key => key.userId === userId)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
+
+  async getAiProviderKey(userId: string, provider: string): Promise<AiProviderKey | undefined> {
+    const keys = Array.from(this.aiProviderKeys.values());
+    return keys.find(key => key.userId === userId && key.provider === provider && key.isActive);
+  }
+
+  async createAiProviderKey(key: AiProviderKey): Promise<AiProviderKey> {
+    const id = this.generateId();
+    const validatedKey = aiProviderKeySchema.parse({ ...key, id });
+    this.aiProviderKeys.set(id, validatedKey);
+    return validatedKey;
+  }
+
+  async updateAiProviderKey(id: string, updates: Partial<AiProviderKey>): Promise<AiProviderKey> {
+    const existing = this.aiProviderKeys.get(id);
+    if (!existing) throw new Error(`AI provider key with id ${id} not found.`);
+    
+    const updated = aiProviderKeySchema.parse({ ...existing, ...updates, updatedAt: new Date() });
+    this.aiProviderKeys.set(id, updated);
+    return updated;
+  }
+
+  async deleteAiProviderKey(id: string): Promise<void> {
+    this.aiProviderKeys.delete(id);
+  }
+
   async getUserStats(userId: string): Promise<{
     totalScraped: number;
     activeTasks: number;
@@ -250,6 +291,12 @@ export class DatabaseStorage implements IStorage {
     const db = getDb();
     if (!db) throw new Error("Database not connected");
     return db.collection<TaskLog>("taskLogs");
+  }
+
+  private getAiProviderKeysCollection(): Collection<AiProviderKey> {
+    const db = getDb();
+    if (!db) throw new Error("Database not connected");
+    return db.collection<AiProviderKey>("aiProviderKeys");
   }
 
   async getUser(id: string): Promise<User | undefined> {
@@ -381,6 +428,39 @@ export class DatabaseStorage implements IStorage {
     const validatedLog = taskLogSchema.parse(log);
     const result = await this.getTaskLogsCollection().insertOne(validatedLog as any);
     return taskLogSchema.parse({ ...validatedLog, id: result.insertedId.toHexString() });
+  }
+
+  async getAiProviderKeys(userId: string): Promise<AiProviderKey[]> {
+    const keys = await this.getAiProviderKeysCollection().find({ userId }).sort({ createdAt: -1 }).toArray();
+    return keys.map(key => aiProviderKeySchema.parse({ ...key, id: key._id.toHexString() }));
+  }
+
+  async getAiProviderKey(userId: string, provider: string): Promise<AiProviderKey | undefined> {
+    const key = await this.getAiProviderKeysCollection().findOne({ userId, provider, isActive: true });
+    return key ? aiProviderKeySchema.parse({ ...key, id: key._id.toHexString() }) : undefined;
+  }
+
+  async createAiProviderKey(key: AiProviderKey): Promise<AiProviderKey> {
+    const validatedKey = aiProviderKeySchema.parse(key);
+    const result = await this.getAiProviderKeysCollection().insertOne(validatedKey as any);
+    return aiProviderKeySchema.parse({ ...validatedKey, id: result.insertedId.toHexString() });
+  }
+
+  async updateAiProviderKey(id: string, updates: Partial<AiProviderKey>): Promise<AiProviderKey> {
+    const validatedUpdates = aiProviderKeySchema.partial().parse(updates);
+    const result: any = await this.getAiProviderKeysCollection().findOneAndUpdate(
+      { _id: new ObjectId(id) },
+      { $set: { ...validatedUpdates, updatedAt: new Date() } },
+      { returnDocument: 'after' }
+    );
+    if (!result.value) {
+      throw new Error(`AI provider key with id ${id} not found.`);
+    }
+    return aiProviderKeySchema.parse({ ...result.value, id: result.value._id.toHexString() });
+  }
+
+  async deleteAiProviderKey(id: string): Promise<void> {
+    await this.getAiProviderKeysCollection().deleteOne({ _id: new ObjectId(id) });
   }
 
   async getUserStats(userId: string): Promise<{

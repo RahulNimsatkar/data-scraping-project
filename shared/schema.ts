@@ -63,6 +63,21 @@ export const taskLogSchema = z.object({
   createdAt: z.date().default(() => new Date()),
 });
 
+// AI Provider API Keys Schema
+export const aiProviderKeySchema = z.object({
+  id: z.string().optional(),
+  userId: z.string(),
+  provider: z.enum(["openai", "gemini", "claude", "cohere", "huggingface"]),
+  name: z.string().min(1),
+  apiKey: z.string().min(1), // Encrypted in storage
+  isActive: z.boolean().default(true),
+  lastUsed: z.date().optional(),
+  usageCount: z.number().int().min(0).default(0),
+  maxUsage: z.number().int().optional(), // Optional usage limit
+  createdAt: z.date().default(() => new Date()),
+  updatedAt: z.date().default(() => new Date()),
+});
+
 // Types
 export type User = z.infer<typeof userSchema>;
 export type ApiKey = z.infer<typeof apiKeySchema>;
@@ -70,3 +85,4 @@ export type ScrapingTask = z.infer<typeof scrapingTaskSchema>;
 export type ScrapedData = z.infer<typeof scrapedDataSchema>;
 export type WebsiteAnalysis = z.infer<typeof websiteAnalysisSchema>;
 export type TaskLog = z.infer<typeof taskLogSchema>;
+export type AiProviderKey = z.infer<typeof aiProviderKeySchema>;

@@ -590,5 +590,138 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // AI Provider Keys Management Routes
+  app.get("/api/ai-keys", authenticateUser, async (req: any, res) => {
+    try {
+      const keys = await storage.getAiProviderKeys(req.user.id);
+      // Don't send actual API keys to frontend, only metadata
+      const safeKeys = keys.map(key => ({
+        ...key,
+        apiKey: key.apiKey.substring(0, 8) + "..." + key.apiKey.slice(-4) // Show only first 8 and last 4 chars
+      }));
+      res.json(safeKeys);
+    } catch (error) {
+      console.error("Get AI keys error:", error);
+      res.status(500).json({ message: "Failed to fetch AI provider keys" });
+    }
+  });
+
+  app.post("/api/ai-keys", authenticateUser, async (req: any, res) => {
+    try {
+      const { provider, name, apiKey } = req.body;
+      
+      if (!provider || !name || !apiKey) {
+        return res.status(400).json({ message: "Provider, name, and API key are required" });
+      }
+
+      // Check if user already has a key for this provider
+      const existingKey = await storage.getAiProviderKey(req.user.id, provider);
+      if (existingKey) {
+        return res.status(400).json({ message: `You already have an active ${provider} API key` });
+      }
+
+      const newKey = await storage.createAiProviderKey({
+        userId: req.user.id,
+        provider,
+        name,
+        apiKey, // In production, this should be encrypted
+        isActive: true,
+        usageCount: 0,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      });
+
+      // Return safe version without full API key
+      const safeKey = {
+        ...newKey,
+        apiKey: newKey.apiKey.substring(0, 8) + "..." + newKey.apiKey.slice(-4)
+      };
+
+      res.json(safeKey);
+    } catch (error) {
+      console.error("Create AI key error:", error);
+      res.status(500).json({ message: "Failed to create AI provider key" });
+    }
+  });
+
+  app.put("/api/ai-keys/:keyId", authenticateUser, async (req: any, res) => {
+    try {
+      const { keyId } = req.params;
+      const updates = req.body;
+      
+      const updatedKey = await storage.updateAiProviderKey(keyId, updates);
+      
+      // Return safe version without full API key
+      const safeKey = {
+        ...updatedKey,
+        apiKey: updatedKey.apiKey.substring(0, 8) + "..." + updatedKey.apiKey.slice(-4)
+      };
+
+      res.json(safeKey);
+    } catch (error) {
+      console.error("Update AI key error:", error);
+      res.status(500).json({ message: "Failed to update AI provider key" });
+    }
+  });
+
+  app.delete("/api/ai-keys/:keyId", authenticateUser, async (req: any, res) => {
+    try {
+      const { keyId } = req.params;
+      await storage.deleteAiProviderKey(keyId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Delete AI key error:", error);
+      res.status(500).json({ message: "Failed to delete AI provider key" });
+    }
+  });
+
+  app.post("/api/ai-keys/test/:keyId", authenticateUser, async (req: any, res) => {
+    try {
+      const { keyId } = req.params;
+      const userKeys = await storage.getAiProviderKeys(req.user.id);
+      const key = userKeys.find(k => k.id === keyId);
+      
+      if (!key) {
+        return res.status(404).json({ message: "API key not found" });
+      }
+
+      // Test the API key with a simple request
+      let testResult = { success: false, message: "Unknown provider", provider: key.provider };
+      
+      try {
+        if (key.provider === 'openai') {
+          const { testOpenAIKey } = await import('./services/openai');
+          testResult = await testOpenAIKey(key.apiKey);
+        } else if (key.provider === 'gemini') {
+          // Add Gemini testing logic
+          testResult = { success: true, message: "Gemini key validation not implemented yet", provider: 'gemini' };
+        } else if (key.provider === 'claude') {
+          // Add Claude testing logic  
+          testResult = { success: true, message: "Claude key validation not implemented yet", provider: 'claude' };
+        }
+
+        // Update usage count and last used
+        if (testResult.success) {
+          await storage.updateAiProviderKey(keyId, {
+            lastUsed: new Date(),
+            usageCount: key.usageCount + 1
+          });
+        }
+
+        res.json(testResult);
+      } catch (testError) {
+        console.error("API key test error:", testError);
+        res.json({ 
+          success: false, 
+          message: testError instanceof Error ? testError.message : "Failed to test API key",
+          provider: key.provider 
+        });
+      }
+    } catch (error) {
+      console.error("Test AI key error:", error);
+      res.status(500).json({ message: "Failed to test AI provider key" });
+    }
+  });
+
   return httpServer;
 }

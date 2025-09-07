@@ -1,9 +1,62 @@
 import OpenAI from "openai";
+import { storage } from "../storage";
 
 // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
-const openai = new OpenAI({ 
+const defaultOpenAI = new OpenAI({ 
   apiKey: process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY_ENV_VAR || "default_key"
 });
+
+// Helper function to get user's OpenAI client or fallback to default
+async function getOpenAIClient(userId?: string): Promise<OpenAI> {
+  if (userId) {
+    try {
+      const userKey = await storage.getAiProviderKey(userId, 'openai');
+      if (userKey && userKey.isActive) {
+        console.log(`Using user's OpenAI API key for user ${userId}`);
+        // Update usage count
+        await storage.updateAiProviderKey(userKey.id!, {
+          lastUsed: new Date(),
+          usageCount: userKey.usageCount + 1
+        });
+        return new OpenAI({ apiKey: userKey.apiKey });
+      }
+    } catch (error) {
+      console.error("Error getting user's OpenAI key:", error);
+    }
+  }
+  
+  console.log("Using default OpenAI API key");
+  return defaultOpenAI;
+}
+
+// Test function for API key validation
+export async function testOpenAIKey(apiKey: string): Promise<{ success: boolean; message: string; provider: string }> {
+  try {
+    const testClient = new OpenAI({ apiKey });
+    const response = await testClient.models.list();
+    
+    if (response.data && response.data.length > 0) {
+      return { 
+        success: true, 
+        message: `Valid OpenAI API key. Access to ${response.data.length} models.`,
+        provider: 'openai'
+      };
+    } else {
+      return { 
+        success: false, 
+        message: "API key is valid but no models are accessible",
+        provider: 'openai'
+      };
+    }
+  } catch (error: any) {
+    const errorMessage = error?.error?.message || error?.message || "Invalid API key";
+    return { 
+      success: false, 
+      message: `OpenAI API key test failed: ${errorMessage}`,
+      provider: 'openai'
+    };
+  }
+}
 
 interface WebsiteAnalysisResult {
   selectors: {
@@ -21,8 +74,10 @@ interface WebsiteAnalysisResult {
   recommendations: string[];
 }
 
-export async function analyzeWebsiteStructure(url: string, htmlContent: string, customPrompt?: string): Promise<WebsiteAnalysisResult> {
+export async function analyzeWebsiteStructure(url: string, htmlContent: string, customPrompt?: string, userId?: string): Promise<WebsiteAnalysisResult> {
   try {
+    const openai = await getOpenAIClient(userId);
+    
     const basePrompt = `Analyze the following HTML content from ${url} and provide web scraping recommendations.`;
     const customInstructions = customPrompt ? `\n\nAdditional Instructions: ${customPrompt}` : '';
     
@@ -110,9 +165,12 @@ export async function generateScrapingCode(
   url: string, 
   selectors: any, 
   strategy: string, 
-  language: 'python' | 'javascript' = 'python'
+  language: 'python' | 'javascript' = 'python',
+  userId?: string
 ): Promise<string> {
   try {
+    const openai = await getOpenAIClient(userId);
+    
     const prompt = `Generate ${language} web scraping code for:
 URL: ${url}
 Selectors: ${JSON.stringify(selectors)}
