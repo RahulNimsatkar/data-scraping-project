@@ -34,13 +34,18 @@ export default function ApiKeysPage() {
   // Fetch AI provider keys
   const { data: aiKeys = [], isLoading, refetch } = useQuery({
     queryKey: ['/api/ai-keys'],
-    queryFn: () => apiRequest('/api/ai-keys')
+    queryFn: async () => {
+      const res = await apiRequest('GET', '/api/ai-keys');
+      return res.json();
+    }
   });
 
   // Mutations for key management
   const createKeyMutation = useMutation({
-    mutationFn: (data: { provider: AIProvider; name: string; apiKey: string }) => 
-      apiRequest('/api/ai-keys', { method: 'POST', body: data }),
+    mutationFn: async (data: { provider: AIProvider; name: string; apiKey: string }) => {
+      const res = await apiRequest('POST', '/api/ai-keys', data);
+      return res.json();
+    },
     onSuccess: () => {
       toast({ title: "API key added!", description: "Your AI provider key has been saved." });
       setNewKeyName("");
@@ -58,7 +63,10 @@ export default function ApiKeysPage() {
   });
 
   const deleteKeyMutation = useMutation({
-    mutationFn: (keyId: string) => apiRequest(`/api/ai-keys/${keyId}`, { method: 'DELETE' }),
+    mutationFn: async (keyId: string) => {
+      const res = await apiRequest('DELETE', `/api/ai-keys/${keyId}`);
+      return res.json();
+    },
     onSuccess: () => {
       toast({ title: "API key deleted", description: "The key has been permanently removed." });
       queryClient.invalidateQueries({ queryKey: ['/api/ai-keys'] });
@@ -73,7 +81,10 @@ export default function ApiKeysPage() {
   });
 
   const testKeyMutation = useMutation({
-    mutationFn: (keyId: string) => apiRequest(`/api/ai-keys/test/${keyId}`, { method: 'POST' }),
+    mutationFn: async (keyId: string) => {
+      const res = await apiRequest('POST', `/api/ai-keys/test/${keyId}`);
+      return res.json();
+    },
     onSuccess: (data, keyId) => {
       setTestingKeys(prev => ({ ...prev, [keyId]: false }));
       if (data.success) {
