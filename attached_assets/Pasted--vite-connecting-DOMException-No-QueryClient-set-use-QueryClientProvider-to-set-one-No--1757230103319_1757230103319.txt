@@ -1,0 +1,22 @@
+[vite] connecting...
+DOMException {}
+
+No QueryClient set, use QueryClientProvider to set one
+No QueryClient set, use QueryClientProvider to set one
+The above error occurred in the <App> component:
+
+    at App (https://3077c32d-6f8a-48d0-bd2f-a9a2aed8b285-00-1dww59yh3t9xr.kirk.replit.dev/src/App.tsx?v=VDB4AJAUfczw7fVNHAKyt:112:3)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+No QueryClient set, use QueryClientProvider to set one
+at useQueryClient (https://3077c32d-6f8a-48d0-bd2f-a9a2aed8b285-00-1dww59yh3t9xr.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=e35a715d:2800:11)
+at useWebSocket (https://3077c32d-6f8a-48d0-bd2f-a9a2aed8b285-00-1dww59yh3t9xr.kirk.replit.dev/src/hooks/use-websocket.tsx:23:23)
+at App (https://3077c32d-6f8a-48d0-bd2f-a9a2aed8b285-00-1dww59yh3t9xr.kirk.replit.dev/src/App.tsx?v=VDB4AJAUfczw7fVNHAKyt:112:3)
+at renderWithHooks (https://3077c32d-6f8a-48d0-bd2f-a9a2aed8b285-00-1dww59yh3t9xr.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-WERSD76P.js?v=e35a715d:11548:26)
+at mountIndeterminateComponent (https://3077c32d-6f8a-48d0-bd2f-a9a2aed8b285-00-1dww59yh3t9xr.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-WERSD76P.js?v=e35a715d:14926:21)
+at beginWork (https://3077c32d-6f8a-48d0-bd2f-a9a2aed8b285-00-1dww59yh3t9xr.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-WERSD76P.js?v=e35a715d:15914:22)
+at beginWork$1 (https://3077c32d-6f8a-48d0-bd2f-a9a2aed8b285-00-1dww59yh3t9xr.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-WERSD76P.js?v=e35a715d:19753:22)
+at performUnitOfWork (https://3077c32d-6f8a-48d0-bd2f-a9a2aed8b285-00-1dww59yh3t9xr.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-WERSD76P.js?v=e35a715d:19198:20)
+at workLoopSync (https://3077c32d-6f8a-48d0-bd2f-a9a2aed8b285-00-1dww59yh3t9xr.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-WERSD76P.js?v=e35a715d:19137:13)
+at renderRootSync (https://3077c32d-6f8a-48d0-bd2f-a9a2aed8b285-00-1dww59yh3t9xr.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-

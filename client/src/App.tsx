@@ -17,7 +17,10 @@ import AnalyticsPage from "@/pages/analytics";
 import AnalyticsMonitorPage from "@/pages/analytics-monitor";
 import NotFound from "@/pages/not-found";
 
-function Router() {
+function AppContent() {
+  // Enable WebSocket connection globally (inside QueryClientProvider)
+  useWebSocket();
+  
   return (
     <Switch>
       <Route path="/" component={Dashboard} />
@@ -38,15 +41,12 @@ function Router() {
 }
 
 function App() {
-  // Enable WebSocket connection globally
-  useWebSocket();
-  
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <div className="dark">
           <Toaster />
-          <Router />
+          <AppContent />
         </div>
       </TooltipProvider>
     </QueryClientProvider>
