@@ -22,6 +22,7 @@ export default function Dashboard() {
   
   const { data: stats, isLoading: statsLoading } = useQuery<DashboardStats>({
     queryKey: ["/api/stats"],
+    refetchInterval: 5000, // Refetch every 5 seconds for real-time updates
   });
 
   const { data: activeTasks, isLoading: tasksLoading } = useQuery<any[]>({
