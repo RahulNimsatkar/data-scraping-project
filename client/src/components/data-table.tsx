@@ -27,6 +27,8 @@ interface ScrapedDataItem {
 export function DataTable() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editData, setEditData] = useState<Record<string, any>>({});
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(20);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -46,6 +48,21 @@ export function DataTable() {
     queryKey: ["/api/tasks", recentTaskId, "data"],
     enabled: !!recentTaskId,
   });
+
+  // Pagination calculations
+  const totalItems = scrapedData?.length || 0;
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = Math.min(startIndex + itemsPerPage, totalItems);
+  const currentData = scrapedData?.slice(startIndex, endIndex) || [];
+
+  const handlePreviousPage = () => {
+    setCurrentPage(prev => Math.max(prev - 1, 1));
+  };
+
+  const handleNextPage = () => {
+    setCurrentPage(prev => Math.min(prev + 1, totalPages));
+  };
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Record<string, any> }) => {
@@ -191,7 +208,7 @@ export function DataTable() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {scrapedData.map((item) => (
+                {currentData.map((item) => (
                   <TableRow 
                     key={item.id} 
                     className="border-t border-border hover:bg-muted/20 transition-colors"
@@ -300,22 +317,39 @@ export function DataTable() {
           </div>
         )}
         
-        <div className="p-4 border-t border-border flex items-center justify-between text-sm text-muted-foreground">
-          <span data-testid="text-pagination-info">
-            Showing 1-{scrapedData?.length || 0} of {scrapedData?.length || 0} results
-          </span>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" disabled>
-              Previous
-            </Button>
-            <Button variant="outline" size="sm" className="bg-primary text-primary-foreground">
-              1
-            </Button>
-            <Button variant="outline" size="sm" disabled>
-              Next
-            </Button>
+        {totalItems > 0 && (
+          <div className="p-4 border-t border-border flex items-center justify-between text-sm text-muted-foreground">
+            <span data-testid="text-pagination-info">
+              Showing {startIndex + 1} to {endIndex} of {totalItems} results
+            </span>
+            <div className="flex items-center gap-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                disabled={currentPage === 1}
+                onClick={handlePreviousPage}
+                data-testid="button-previous-page"
+              >
+                Previous
+              </Button>
+              <Button variant="outline" size="sm" className="bg-primary text-primary-foreground">
+                {currentPage}
+              </Button>
+              {totalPages > 1 && (
+                <span className="text-muted-foreground">of {totalPages}</span>
+              )}
+              <Button 
+                variant="outline" 
+                size="sm" 
+                disabled={currentPage === totalPages}
+                onClick={handleNextPage}
+                data-testid="button-next-page"
+              >
+                Next
+              </Button>
+            </div>
           </div>
-        </div>
+        )}
       </CardContent>
     </Card>
   );
