@@ -3,6 +3,8 @@ import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { analyzeWebsiteStructure, generateScrapingCode } from "./services/openai";
+import { performEnhancedWebsiteAnalysis, generateAdvancedScrapingCode } from "./services/enhanced-ai-analysis";
+import { advancedScraperService } from "./services/advanced-scraper";
 import { addScrapingJob } from "./services/queue";
 import { scraperService } from "./services/scraper";
 import { scrapingTaskSchema, scrapedDataSchema, websiteAnalysisSchema } from "@shared/schema";
@@ -15,6 +17,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // WebSocket server for real-time updates
   const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
   scraperService.setWebSocketServer(wss);
+  advancedScraperService.setWebSocketServer(wss);
 
   wss.on('connection', (ws: WebSocket) => {
     console.log('WebSocket client connected');
@@ -845,6 +848,126 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Test database connection error:", error);
       res.status(500).json({ message: "Failed to test database connection" });
+    }
+  });
+
+  // Enhanced website analysis endpoint
+  app.post("/api/analyze/enhanced", authenticateUser, async (req: any, res) => {
+    try {
+      const { url, prompt } = req.body;
+      
+      if (!url) {
+        return res.status(400).json({ message: "URL is required" });
+      }
+
+      console.log('Performing enhanced website analysis...');
+      
+      // Fetch website content
+      const response = await fetch(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        }
+      });
+      const htmlContent = await response.text();
+
+      // Perform enhanced analysis
+      const analysis = await performEnhancedWebsiteAnalysis(url, htmlContent, prompt, req.user.id);
+      
+      res.json(analysis);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error("Enhanced analysis error:", error);
+      res.status(500).json({ message: `Failed to perform enhanced analysis: ${errorMessage}` });
+    }
+  });
+
+  // Advanced scraping task creation endpoint
+  app.post("/api/tasks/advanced", authenticateUser, async (req: any, res) => {
+    try {
+      const { url, renderMode, browserType, maxPages, delay, waitForSelector, scrollToBottom } = req.body;
+      
+      if (!url) {
+        return res.status(400).json({ message: "URL is required" });
+      }
+
+      // Create scraping task
+      const taskData = {
+        userId: req.user.id,
+        name: `Advanced Scrape: ${new URL(url).hostname}`,
+        url,
+        status: 'pending',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        selectors: {}, // Will be generated dynamically
+        strategy: `Advanced ${renderMode || 'dynamic'} scraping`
+      };
+
+      const task = await storage.createScrapingTask(taskData as any);
+
+      // Start advanced scraping
+      const options = {
+        url,
+        selectors: {}, // Will be auto-generated
+        strategy: taskData.strategy,
+        maxPages: maxPages || 3,
+        delay: delay || 2000,
+        renderMode: renderMode || 'dynamic',
+        browserType: browserType || 'chromium',
+        waitForSelector,
+        waitForNetworkIdle: true,
+        scrollToBottom,
+        captureScreenshots: false
+      };
+
+      // Start scraping in background
+      advancedScraperService.startAdvancedScraping(task.id!, options).catch(error => {
+        console.error('Background scraping error:', error);
+      });
+
+      res.json(task);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error("Create advanced task error:", error);
+      res.status(500).json({ message: `Failed to create advanced scraping task: ${errorMessage}` });
+    }
+  });
+
+  // Generate advanced scraping code endpoint
+  app.post("/api/code/generate/advanced", authenticateUser, async (req: any, res) => {
+    try {
+      const { url, analysis, language = 'javascript' } = req.body;
+      
+      if (!url || !analysis) {
+        return res.status(400).json({ message: "URL and analysis are required" });
+      }
+
+      const code = await generateAdvancedScrapingCode(url, analysis, language, req.user.id);
+      
+      res.json({ 
+        code,
+        language,
+        framework: analysis.technology?.framework || 'unknown',
+        complexity: analysis.estimatedComplexity || 'medium'
+      });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error("Code generation error:", error);
+      res.status(500).json({ message: `Failed to generate scraping code: ${errorMessage}` });
+    }
+  });
+
+  // Stop advanced scraping task
+  app.post("/api/tasks/:taskId/stop/advanced", authenticateUser, async (req: any, res) => {
+    try {
+      const { taskId } = req.params;
+      
+      await advancedScraperService.stopTask(taskId);
+      
+      res.json({ message: "Advanced scraping task stopped successfully" });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error("Stop advanced task error:", error);
+      res.status(500).json({ message: `Failed to stop advanced scraping task: ${errorMessage}` });
     }
   });
 
