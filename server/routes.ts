@@ -695,7 +695,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         if (key.provider === 'openai') {
           const { testOpenAIKey } = await import('./services/openai');
-          testResult = await testOpenAIKey(key.apiKey);
+          const result = await testOpenAIKey(key.apiKey);
+          testResult = { ...result, provider: key.provider };
         } else if (key.provider === 'gemini') {
           // Add Gemini testing logic
           testResult = { success: true, message: "Gemini key validation not implemented yet", provider: 'gemini' };
@@ -724,6 +725,126 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Test AI key error:", error);
       res.status(500).json({ message: "Failed to test AI provider key" });
+    }
+  });
+
+  // Database Connection Management Routes
+  app.get("/api/databases", authenticateUser, async (req: any, res) => {
+    try {
+      const connections = await storage.getDatabaseConnections(req.user.id);
+      // Don't send passwords to frontend, only metadata
+      const safeConnections = connections.map(conn => ({
+        ...conn,
+        password: conn.password ? "***" : undefined,
+        url: conn.url.replace(/\/\/[^:]+:[^@]+@/, "//***:***@") // Mask credentials in URL
+      }));
+      res.json(safeConnections);
+    } catch (error) {
+      console.error("Get database connections error:", error);
+      res.status(500).json({ message: "Failed to fetch database connections" });
+    }
+  });
+
+  app.post("/api/databases", authenticateUser, async (req: any, res) => {
+    try {
+      const { name, type, url, username, password, database, isDefault } = req.body;
+      
+      if (!name || !type || !url) {
+        return res.status(400).json({ message: "Name, type, and URL are required" });
+      }
+
+      // If this is set as default, unset other defaults for this user
+      if (isDefault) {
+        const existingConnections = await storage.getDatabaseConnections(req.user.id);
+        for (const conn of existingConnections) {
+          if (conn.isDefault && conn.id) {
+            await storage.updateDatabaseConnection(conn.id, { isDefault: false });
+          }
+        }
+      }
+
+      const newConnection = await storage.createDatabaseConnection({
+        userId: req.user.id,
+        name,
+        type,
+        url,
+        username,
+        password,
+        database,
+        isActive: true,
+        isDefault: !!isDefault,
+        status: "disconnected",
+        createdAt: new Date(),
+        updatedAt: new Date()
+      });
+
+      // Return safe version without credentials
+      const safeConnection = {
+        ...newConnection,
+        password: newConnection.password ? "***" : undefined,
+        url: newConnection.url.replace(/\/\/[^:]+:[^@]+@/, "//***:***@")
+      };
+
+      res.json(safeConnection);
+    } catch (error) {
+      console.error("Create database connection error:", error);
+      res.status(500).json({ message: "Failed to create database connection" });
+    }
+  });
+
+  app.patch("/api/databases/:id", authenticateUser, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+
+      // If this is being set as default, unset other defaults for this user
+      if (updates.isDefault) {
+        const existingConnections = await storage.getDatabaseConnections(req.user.id);
+        for (const conn of existingConnections) {
+          if (conn.isDefault && conn.id && conn.id !== id) {
+            await storage.updateDatabaseConnection(conn.id, { isDefault: false });
+          }
+        }
+      }
+
+      const updatedConnection = await storage.updateDatabaseConnection(id, {
+        ...updates,
+        updatedAt: new Date()
+      });
+
+      // Return safe version without credentials
+      const safeConnection = {
+        ...updatedConnection,
+        password: updatedConnection.password ? "***" : undefined,
+        url: updatedConnection.url.replace(/\/\/[^:]+:[^@]+@/, "//***:***@")
+      };
+
+      res.json(safeConnection);
+    } catch (error) {
+      console.error("Update database connection error:", error);
+      res.status(500).json({ message: "Failed to update database connection" });
+    }
+  });
+
+  app.delete("/api/databases/:id", authenticateUser, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      await storage.deleteDatabaseConnection(id);
+      res.json({ message: "Database connection deleted successfully" });
+    } catch (error) {
+      console.error("Delete database connection error:", error);
+      res.status(500).json({ message: "Failed to delete database connection" });
+    }
+  });
+
+  app.post("/api/databases/:id/test", authenticateUser, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const result = await storage.testDatabaseConnection(id);
+      res.json(result);
+    } catch (error) {
+      console.error("Test database connection error:", error);
+      res.status(500).json({ message: "Failed to test database connection" });
     }
   });
 

@@ -6,6 +6,7 @@ import {
   websiteAnalysisSchema,
   taskLogSchema,
   aiProviderKeySchema,
+  databaseConnectionSchema,
   User,
   ApiKey,
   ScrapingTask,
@@ -13,6 +14,7 @@ import {
   WebsiteAnalysis,
   TaskLog,
   AiProviderKey,
+  DatabaseConnection,
 } from "@shared/schema";
 import { getDb, isDbConnected } from "./db";
 import { Collection, ObjectId } from "mongodb";
@@ -56,6 +58,14 @@ export interface IStorage {
   updateAiProviderKey(id: string, updates: Partial<AiProviderKey>): Promise<AiProviderKey>;
   deleteAiProviderKey(id: string): Promise<void>;
 
+  // Database Connections
+  getDatabaseConnections(userId?: string): Promise<DatabaseConnection[]>;
+  getDatabaseConnection(id: string): Promise<DatabaseConnection | undefined>;
+  createDatabaseConnection(connection: DatabaseConnection): Promise<DatabaseConnection>;
+  updateDatabaseConnection(id: string, updates: Partial<DatabaseConnection>): Promise<DatabaseConnection>;
+  deleteDatabaseConnection(id: string): Promise<void>;
+  testDatabaseConnection(id: string): Promise<{ success: boolean; error?: string }>;
+
   // Statistics
   getUserStats(userId: string): Promise<{
     totalScraped: number;
@@ -74,6 +84,7 @@ export class InMemoryStorage implements IStorage {
   private websiteAnalysis = new Map<string, WebsiteAnalysis>();
   private taskLogs = new Map<string, TaskLog>();
   private aiProviderKeys = new Map<string, AiProviderKey>();
+  private databaseConnections = new Map<string, DatabaseConnection>();
 
   private generateId(): string {
     return Math.random().toString(36).substr(2, 9);
@@ -229,6 +240,70 @@ export class InMemoryStorage implements IStorage {
     this.aiProviderKeys.delete(id);
   }
 
+  async getDatabaseConnections(userId?: string): Promise<DatabaseConnection[]> {
+    const connections = Array.from(this.databaseConnections.values());
+    return userId 
+      ? connections.filter(conn => conn.userId === userId)
+      : connections.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
+
+  async getDatabaseConnection(id: string): Promise<DatabaseConnection | undefined> {
+    return this.databaseConnections.get(id);
+  }
+
+  async createDatabaseConnection(connection: DatabaseConnection): Promise<DatabaseConnection> {
+    const id = this.generateId();
+    const validatedConnection = databaseConnectionSchema.parse({ ...connection, id });
+    this.databaseConnections.set(id, validatedConnection);
+    return validatedConnection;
+  }
+
+  async updateDatabaseConnection(id: string, updates: Partial<DatabaseConnection>): Promise<DatabaseConnection> {
+    const existing = this.databaseConnections.get(id);
+    if (!existing) throw new Error(`Database connection with id ${id} not found.`);
+    
+    const updated = databaseConnectionSchema.parse({ ...existing, ...updates, updatedAt: new Date() });
+    this.databaseConnections.set(id, updated);
+    return updated;
+  }
+
+  async deleteDatabaseConnection(id: string): Promise<void> {
+    this.databaseConnections.delete(id);
+  }
+
+  async testDatabaseConnection(id: string): Promise<{ success: boolean; error?: string }> {
+    const connection = this.databaseConnections.get(id);
+    if (!connection) {
+      return { success: false, error: "Database connection not found" };
+    }
+
+    try {
+      // For in-memory storage, just simulate a connection test
+      if (connection.type === "mongodb") {
+        // Basic MongoDB URL validation
+        if (!connection.url.includes("mongodb")) {
+          throw new Error("Invalid MongoDB connection string");
+        }
+      }
+      
+      // Update the connection status
+      await this.updateDatabaseConnection(id, { 
+        status: "connected", 
+        lastConnected: new Date(),
+        errorMessage: undefined
+      });
+      
+      return { success: true };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      await this.updateDatabaseConnection(id, { 
+        status: "error", 
+        errorMessage 
+      });
+      return { success: false, error: errorMessage };
+    }
+  }
+
   async getUserStats(userId: string): Promise<{
     totalScraped: number;
     activeTasks: number;
@@ -297,6 +372,12 @@ export class DatabaseStorage implements IStorage {
     const db = getDb();
     if (!db) throw new Error("Database not connected");
     return db.collection<AiProviderKey>("aiProviderKeys");
+  }
+
+  private getDatabaseConnectionsCollection(): Collection<DatabaseConnection> {
+    const db = getDb();
+    if (!db) throw new Error("Database not connected");
+    return db.collection<DatabaseConnection>("databaseConnections");
   }
 
   async getUser(id: string): Promise<User | undefined> {
@@ -436,7 +517,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAiProviderKey(userId: string, provider: string): Promise<AiProviderKey | undefined> {
-    const key = await this.getAiProviderKeysCollection().findOne({ userId, provider, isActive: true });
+    const key = await this.getAiProviderKeysCollection().findOne({ userId, provider: provider as any, isActive: true });
     return key ? aiProviderKeySchema.parse({ ...key, id: key._id.toHexString() }) : undefined;
   }
 
@@ -461,6 +542,78 @@ export class DatabaseStorage implements IStorage {
 
   async deleteAiProviderKey(id: string): Promise<void> {
     await this.getAiProviderKeysCollection().deleteOne({ _id: new ObjectId(id) });
+  }
+
+  async getDatabaseConnections(userId?: string): Promise<DatabaseConnection[]> {
+    const filter = userId ? { userId } : {};
+    const connections = await this.getDatabaseConnectionsCollection().find(filter).sort({ createdAt: -1 }).toArray();
+    return connections.map(conn => databaseConnectionSchema.parse({ ...conn, id: conn._id.toHexString() }));
+  }
+
+  async getDatabaseConnection(id: string): Promise<DatabaseConnection | undefined> {
+    try {
+      const connection = await this.getDatabaseConnectionsCollection().findOne({ _id: new ObjectId(id) });
+      return connection ? databaseConnectionSchema.parse({ ...connection, id: connection._id.toHexString() }) : undefined;
+    } catch (error) {
+      console.error("Error in getDatabaseConnection:", error);
+      return undefined;
+    }
+  }
+
+  async createDatabaseConnection(connection: DatabaseConnection): Promise<DatabaseConnection> {
+    const validatedConnection = databaseConnectionSchema.parse(connection);
+    const result = await this.getDatabaseConnectionsCollection().insertOne(validatedConnection as any);
+    return databaseConnectionSchema.parse({ ...validatedConnection, id: result.insertedId.toHexString() });
+  }
+
+  async updateDatabaseConnection(id: string, updates: Partial<DatabaseConnection>): Promise<DatabaseConnection> {
+    const validatedUpdates = databaseConnectionSchema.partial().parse(updates);
+    const result: any = await this.getDatabaseConnectionsCollection().findOneAndUpdate(
+      { _id: new ObjectId(id) },
+      { $set: { ...validatedUpdates, updatedAt: new Date() } },
+      { returnDocument: 'after' }
+    );
+    if (!result.value) {
+      throw new Error(`Database connection with id ${id} not found.`);
+    }
+    return databaseConnectionSchema.parse({ ...result.value, id: result.value._id.toHexString() });
+  }
+
+  async deleteDatabaseConnection(id: string): Promise<void> {
+    await this.getDatabaseConnectionsCollection().deleteOne({ _id: new ObjectId(id) });
+  }
+
+  async testDatabaseConnection(id: string): Promise<{ success: boolean; error?: string }> {
+    const connection = await this.getDatabaseConnection(id);
+    if (!connection) {
+      return { success: false, error: "Database connection not found" };
+    }
+
+    try {
+      // Test the actual database connection
+      if (connection.type === "mongodb") {
+        const { MongoClient } = await import("mongodb");
+        const client = new MongoClient(connection.url);
+        await client.connect();
+        await client.db().admin().ping();
+        await client.close();
+      }
+      
+      await this.updateDatabaseConnection(id, { 
+        status: "connected", 
+        lastConnected: new Date(),
+        errorMessage: undefined
+      });
+      
+      return { success: true };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      await this.updateDatabaseConnection(id, { 
+        status: "error", 
+        errorMessage 
+      });
+      return { success: false, error: errorMessage };
+    }
   }
 
   async getUserStats(userId: string): Promise<{
