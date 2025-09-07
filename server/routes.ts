@@ -284,5 +284,305 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Dynamic analytics routes for real-time website analysis
+  app.post("/api/analytics/auto-analyze", authenticateUser, async (req: any, res) => {
+    try {
+      const { url, enableAutoScraping = false } = req.body;
+      
+      if (!url) {
+        return res.status(400).json({ message: "URL is required" });
+      }
+
+      // Perform automatic analysis with enhanced capabilities
+      const startTime = Date.now();
+      
+      // Fetch website content with multiple strategies
+      let htmlContent = '';
+      let metrics = {
+        loadTime: 0,
+        contentSize: 0,
+        title: '',
+        links: 0,
+        images: 0,
+        forms: 0
+      };
+
+      try {
+        console.log('Auto-analyzing website with dynamic fetching...');
+        const response = await fetch(url, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'Cache-Control': 'no-cache'
+          }
+        });
+        
+        htmlContent = await response.text();
+        metrics.loadTime = Date.now() - startTime;
+        metrics.contentSize = htmlContent.length;
+
+        // Extract basic website metrics
+        const titleMatch = htmlContent.match(/<title[^>]*>([^<]+)<\/title>/i);
+        metrics.title = titleMatch ? titleMatch[1].trim() : '';
+        metrics.links = (htmlContent.match(/<a\s+[^>]*href/gi) || []).length;
+        metrics.images = (htmlContent.match(/<img\s+[^>]*src/gi) || []).length;
+        metrics.forms = (htmlContent.match(/<form\s+[^>]*>/gi) || []).length;
+
+      } catch (fetchError) {
+        console.error('Fetch error:', fetchError);
+        return res.status(500).json({ message: "Failed to fetch website content" });
+      }
+
+      // Enhanced AI analysis with metrics
+      const analysis = await analyzeWebsiteStructure(url, htmlContent, 
+        "Perform comprehensive analysis including data extraction patterns, API endpoints detection, and optimal scraping strategies");
+      
+      // Store enhanced analysis with metrics
+      const enhancedAnalysis = {
+        url,
+        selectors: { primary: analysis.selectors.primary },
+        patterns: analysis.patterns,
+        strategy: analysis.strategy,
+        confidence: parseFloat(analysis.confidence.toString()),
+        createdAt: new Date()
+      };
+
+      const savedAnalysis = await storage.createWebsiteAnalysis(enhancedAnalysis);
+
+      // Automatically create and start scraping task if requested
+      if (enableAutoScraping) {
+        const autoTask = await storage.createScrapingTask({
+          name: `Auto-generated analysis: ${metrics.title || new URL(url).hostname}`,
+          url,
+          selectors: { primary: analysis.selectors.primary },
+          strategy: analysis.strategy,
+          userId: req.user.id,
+          status: 'pending',
+          createdAt: new Date(),
+          updatedAt: new Date()
+        });
+
+        // Generate and store scraping code
+        const generatedCode = await generateScrapingCode(
+          url,
+          analysis.selectors,
+          analysis.strategy
+        );
+        await storage.updateScrapingTask(autoTask.id!, { generatedCode });
+
+        // Add to scraping queue for automatic execution
+        await addScrapingJob({
+          taskId: autoTask.id!,
+          url,
+          selectors: analysis.selectors,
+          strategy: analysis.strategy,
+          maxPages: 10,
+          delay: 1500
+        });
+
+        return res.json({
+          analysis: savedAnalysis,
+          autoTask,
+          metrics,
+          recommendations: analysis.recommendations,
+          message: "Website analyzed and scraping task automatically created"
+        });
+      }
+
+      res.json({
+        analysis: savedAnalysis,
+        metrics,
+        recommendations: analysis.recommendations,
+        message: "Dynamic website analysis completed"
+      });
+
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error("Auto-analysis error:", error);
+      res.status(500).json({ message: `Auto-analysis failed: ${errorMessage}` });
+    }
+  });
+
+  // Real-time website monitoring endpoint
+  app.get("/api/analytics/monitor/:taskId", authenticateUser, async (req: any, res) => {
+    try {
+      const { taskId } = req.params;
+      
+      const task = await storage.getScrapingTask(taskId);
+      if (!task) {
+        return res.status(404).json({ message: "Task not found" });
+      }
+
+      // Get real-time task data and logs
+      const scrapedData = await storage.getScrapedData(taskId, 10, 0);
+      const taskLogs = await storage.getTaskLogs(taskId);
+      
+      // Calculate real-time metrics
+      const totalItems = await storage.getScrapedData(taskId, 10000, 0);
+      const recentItems = await storage.getScrapedData(taskId, 5, 0);
+      
+      const analytics = {
+        task,
+        status: task.status,
+        totalItemsScraped: totalItems.length,
+        recentItems: recentItems.length,
+        lastUpdate: task.updatedAt,
+        progressRate: totalItems.length / Math.max(1, (Date.now() - new Date(task.createdAt).getTime()) / (1000 * 60)), // items per minute
+        recentData: scrapedData,
+        logs: taskLogs.slice(0, 10), // Last 10 logs
+        performance: {
+          startTime: task.createdAt,
+          runTime: Date.now() - new Date(task.createdAt).getTime(),
+          itemsPerMinute: totalItems.length / Math.max(1, (Date.now() - new Date(task.createdAt).getTime()) / (1000 * 60)),
+          errorRate: taskLogs.filter(log => log.level === 'error').length / Math.max(1, taskLogs.length) * 100
+        }
+      };
+
+      res.json(analytics);
+    } catch (error) {
+      console.error("Monitor error:", error);
+      res.status(500).json({ message: "Failed to get monitoring data" });
+    }
+  });
+
+  // Bulk analysis endpoint for multiple URLs
+  app.post("/api/analytics/bulk-analyze", authenticateUser, async (req: any, res) => {
+    try {
+      const { urls, autoCreateTasks = false } = req.body;
+      
+      if (!Array.isArray(urls) || urls.length === 0) {
+        return res.status(400).json({ message: "URLs array is required" });
+      }
+
+      if (urls.length > 10) {
+        return res.status(400).json({ message: "Maximum 10 URLs allowed per request" });
+      }
+
+      const results = [];
+      
+      for (const url of urls) {
+        try {
+          // Quick analysis for bulk processing
+          const response = await fetch(url, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            }
+          });
+          
+          const htmlContent = await response.text();
+          const analysis = await analyzeWebsiteStructure(url, htmlContent, 
+            "Quick analysis for bulk processing - focus on main content extraction patterns");
+          
+          const result: any = {
+            url,
+            analysis,
+            status: 'success',
+            timestamp: new Date()
+          };
+
+          // Auto-create tasks if requested
+          if (autoCreateTasks) {
+            const bulkTask = await storage.createScrapingTask({
+              name: `Bulk analysis: ${new URL(url).hostname}`,
+              url,
+              selectors: { primary: analysis.selectors.primary },
+              strategy: analysis.strategy,
+              userId: req.user.id,
+              status: 'pending',
+              createdAt: new Date(),
+              updatedAt: new Date()
+            });
+            
+            result.taskId = bulkTask.id;
+          }
+
+          results.push(result);
+          
+        } catch (urlError) {
+          results.push({
+            url,
+            status: 'error',
+            error: urlError instanceof Error ? urlError.message : 'Unknown error',
+            timestamp: new Date()
+          });
+        }
+      }
+
+      res.json({
+        results,
+        summary: {
+          total: urls.length,
+          successful: results.filter(r => r.status === 'success').length,
+          failed: results.filter(r => r.status === 'error').length,
+          tasksCreated: autoCreateTasks ? results.filter((r: any) => r.taskId).length : 0
+        }
+      });
+
+    } catch (error) {
+      console.error("Bulk analysis error:", error);
+      res.status(500).json({ message: "Bulk analysis failed" });
+    }
+  });
+
+  // Enhanced real-time data streaming endpoint
+  app.get("/api/analytics/stream/:taskId", authenticateUser, async (req: any, res) => {
+    try {
+      const { taskId } = req.params;
+      
+      // Set up Server-Sent Events for real-time streaming
+      res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'Cache-Control'
+      });
+
+      const sendEvent = (data: any) => {
+        res.write(`data: ${JSON.stringify(data)}\n\n`);
+      };
+
+      // Send initial data
+      const task = await storage.getScrapingTask(taskId);
+      if (task) {
+        const scrapedData = await storage.getScrapedData(taskId, 5, 0);
+        sendEvent({
+          type: 'initial',
+          task,
+          recentData: scrapedData,
+          timestamp: new Date()
+        });
+      }
+
+      // Set up interval for real-time updates
+      const updateInterval = setInterval(async () => {
+        try {
+          const currentTask = await storage.getScrapingTask(taskId);
+          const recentData = await storage.getScrapedData(taskId, 3, 0);
+          
+          sendEvent({
+            type: 'update',
+            status: currentTask?.status,
+            itemCount: (await storage.getScrapedData(taskId, 10000, 0)).length,
+            recentData,
+            timestamp: new Date()
+          });
+        } catch (streamError) {
+          console.error('Stream update error:', streamError);
+        }
+      }, 5000); // Update every 5 seconds
+
+      // Clean up on client disconnect
+      req.on('close', () => {
+        clearInterval(updateInterval);
+      });
+
+    } catch (error) {
+      console.error("Stream error:", error);
+      res.status(500).json({ message: "Failed to start data stream" });
+    }
+  });
+
   return httpServer;
 }

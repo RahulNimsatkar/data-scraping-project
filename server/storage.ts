@@ -408,6 +408,9 @@ export class DatabaseStorage implements IStorage {
   }
 }
 
+// Storage instance that can be dynamically switched
+let currentStorage: IStorage = new InMemoryStorage();
+
 // Create storage instance based on database availability
 function createStorage(): IStorage {
   if (isDbConnected()) {
@@ -419,4 +422,17 @@ function createStorage(): IStorage {
   }
 }
 
-export const storage = createStorage();
+// Initialize storage after database connection
+export function initializeStorage(): void {
+  currentStorage = createStorage();
+}
+
+// Export storage with dynamic switching capability
+export const storage = new Proxy({} as IStorage, {
+  get(target, prop) {
+    return (currentStorage as any)[prop];
+  }
+});
+
+// Initialize with in-memory storage by default
+initializeStorage();
